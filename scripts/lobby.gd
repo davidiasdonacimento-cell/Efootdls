@@ -196,7 +196,7 @@ func _build_interface() -> void:
 	nav.anchor_right = 0.215
 	nav.anchor_top = 0.17
 	nav.anchor_bottom = 0.96
-	_style_panel(nav)
+	_style_panel(nav, Color(0.012, 0.03, 0.055, 0.97))
 	root_ui.add_child(nav)
 	var nav_list := VBoxContainer.new()
 	nav_list.add_theme_constant_override("separation", 9)
