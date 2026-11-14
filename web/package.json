@@ -1,7 +1,7 @@
 {
   "name": "efootdls-web",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -9,24 +9,9 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.6",
-    "@react-three/fiber": "^9.4.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "three": "^0.181.0",
-    "lucide-react": "^0.554.0"
+    "three": "^0.181.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.1.1",
-    "vite": "^7.2.2",
-    "@angular/cli": "^20.3.0",
-    "@angular/core": "^20.3.0",
-    "@angular/compiler-cli": "^20.3.0",
-    "@astrojs/react": "^4.4.0",
-    "astro": "^5.15.0",
-    "next": "^16.0.0",
-    "svelte": "^5.43.0",
-    "vue": "^3.5.22",
-    "typescript": "^5.9.3"
+    "vite": "^7.2.2"
   }
 }
