@@ -72,10 +72,8 @@ func _generate_fixtures() -> void:
 				"home_score": 0,
 				"away_score": 0
 			})
-		var fixed := participants[0]
-		var rotating := participants.slice(1)
-		rotating.push_front(rotating.pop_back())
-		participants = [fixed] + rotating
+		var last_participant: String = participants.pop_back()
+		participants.insert(1, last_participant)
 	var first_leg := fixtures.duplicate(true)
 	for fixture in first_leg:
 		fixtures.append({
@@ -220,10 +218,29 @@ func load_career() -> bool:
 		_reset_table()
 		_generate_fixtures()
 		return false
-	clubs = config.get_value("career", "clubs", CLUBS.duplicate())
-	table = config.get_value("career", "table", [])
-	fixtures = config.get_value("career", "fixtures", [])
-	history = config.get_value("career", "history", [])
+	clubs.clear()
+	var loaded_clubs: Variant = config.get_value("career", "clubs", CLUBS)
+	if loaded_clubs is Array:
+		for club in loaded_clubs:
+			clubs.append(str(club))
+	table.clear()
+	var loaded_table: Variant = config.get_value("career", "table", [])
+	if loaded_table is Array:
+		for row in loaded_table:
+			if row is Dictionary:
+				table.append(row.duplicate(true))
+	fixtures.clear()
+	var loaded_fixtures: Variant = config.get_value("career", "fixtures", [])
+	if loaded_fixtures is Array:
+		for fixture in loaded_fixtures:
+			if fixture is Dictionary:
+				fixtures.append(fixture.duplicate(true))
+	history.clear()
+	var loaded_history: Variant = config.get_value("career", "history", [])
+	if loaded_history is Array:
+		for item in loaded_history:
+			if item is Dictionary:
+				history.append(item.duplicate(true))
 	current_round = int(config.get_value("career", "round", 1))
 	season_number = int(config.get_value("career", "season", 1))
 	user_club = str(config.get_value("career", "user_club", "Efootdls FC"))
