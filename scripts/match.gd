@@ -155,7 +155,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Toque no lado direito do campo também executa o chute, como em jogos mobile.
 	if event is InputEventScreenTouch and event.pressed:
 		var screen_width := get_viewport().get_visible_rect().size.x
-		if event.position.x > screen_width * 0.52:
+		var screen_height := get_viewport().get_visible_rect().size.y
+		if event.position.x > screen_width * 0.52 and event.position.y > screen_height * 0.42:
 			_kick_ball()
 
 func _mat(color: Color, roughness := 0.8) -> StandardMaterial3D:
