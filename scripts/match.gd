@@ -184,21 +184,21 @@ func _add_box(parent: Node3D, size: Vector3, pos: Vector3, color: Color, collisi
 	return mesh_instance
 
 func _build_world() -> void:
-	var environment_node := WorldEnvironment.new()
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color(0.025, 0.045, 0.075)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color(0.62, 0.70, 0.82)
 	environment.ambient_light_energy = 0.8
-	environment_node.environment = environment
-	add_child(environment_node)
+	world_environment = WorldEnvironment.new()
+	world_environment.environment = environment
+	add_child(world_environment)
 
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-52, -25, 0)
-	sun.light_energy = 1.15
-	sun.shadow_enabled = true
-	add_child(sun)
+	sun_light = DirectionalLight3D.new()
+	sun_light.rotation_degrees = Vector3(-52, -25, 0)
+	sun_light.light_energy = 1.15
+	sun_light.shadow_enabled = true
+	add_child(sun_light)
 
 	_add_box(self, Vector3(FIELD_WIDTH, 0.5, FIELD_LENGTH), Vector3(0, -0.35, 0), Color(0.035, 0.27, 0.12), true)
 	for i in range(8):
