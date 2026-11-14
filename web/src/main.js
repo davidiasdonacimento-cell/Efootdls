@@ -5,7 +5,7 @@ const root = document.querySelector('#app');
 root.innerHTML = `
   <div class="shell">
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Efootdls início"><span class="brand-mark">E</span><span><b>EFOOTDLS</b><small>FOOTBALL SIMULATOR</small></span></a>
+      <a class="brand" href="#" aria-label="Efootdls início"><img class="brand-mark" src="/logo.svg" alt="Efootdls"><span><b>EFOOTDLS</b><small>FOOTBALL SIMULATOR</small></span></a>
       <div class="top-right"><span class="online"><i></i> MATCH CENTER</span><button class="sound-toggle" id="sound" aria-label="Som">♫</button></div>
     </header>
     <main>
