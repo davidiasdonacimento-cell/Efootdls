@@ -408,7 +408,7 @@ func _buy_player(player_id: String) -> void:
 		return
 	var owned: Array = market.call("get_owned_players")
 	var signed: Dictionary = owned[owned.size() - 1].duplicate(true)
-	signed["number"] = 12 + roster.substitutes.size()
+	signed["number"] = 12 + roster.call("get_substitutes").size()
 	if not bool(roster.call("add_player_to_bench", signed)):
 		_set_notice("Atleta contratado, mas não foi possível adicioná-lo ao banco.")
 	else:
