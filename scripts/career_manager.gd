@@ -58,8 +58,8 @@ func _generate_fixtures() -> void:
 	var half := int(participants.size() / 2)
 	for round_index in range(rounds):
 		for match_index in range(half):
-			var home := participants[match_index]
-			var away := participants[participants.size() - 1 - match_index]
+			var home: String = str(participants[match_index])
+			var away: String = str(participants[participants.size() - 1 - match_index])
 			if round_index % 2 == 1:
 				var swap := home
 				home = away
