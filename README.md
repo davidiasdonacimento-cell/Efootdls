@@ -1,11 +1,12 @@
 # Efootdls
 
-Jogo original de futebol 3D para Android, desenvolvido em Godot 4.3 com o renderizador Compatibility.
+Jogo original de futebol 3D para Android, desenvolvido em Godot 4.7.2 com o renderizador Compatibility.
 
 ## Estrutura do projeto
 
 - `project.godot`: configurações principais e cena de inicialização.
-- `scenes/main.tscn`: cena que inicia a partida.
+- `scenes/main.tscn`: lobby principal e menus do clube.
+- `scenes/match.tscn`: partida de futebol 3D.
 - `scenes/lobby.tscn`: cena de menu/lobby original.
 - `scripts/match.gd`: coordena a partida, controles, HUD e ligação dos sistemas.
 - `scripts/footballer_ai.gd`: comportamento dos atletas de apoio e adversários.
@@ -32,7 +33,7 @@ Jogo original de futebol 3D para Android, desenvolvido em Godot 4.3 com o render
 - `scripts/objectives_manager.gd`: missões diárias e semanais.
 - `scripts/accessibility_manager.gd`: texto, contraste, controles e preferências de acessibilidade.
 - `scripts/match_settings.gd`: parâmetros e dificuldade.
-- `scripts/lobby.gd`: construção visual do lobby.
+- `scripts/lobby.gd`: lobby funcional com perfil, elenco, mercado e navegação.
 
 ## Controles da partida
 
@@ -50,7 +51,7 @@ Também há suporte a WASD/setas e Shift em computadores.
 
 ## Sistemas disponíveis no código
 
-A partida constrói o gramado e o estádio em 3D, cria o atleta controlado, companheiros, adversários e goleiro, acompanha a bola com física 3D e mostra o placar e cronômetro. O HUD inclui minimapa, fôlego, botões de ação e seletor de tática.
+A partida cria duas equipes com atletas de apoio, dois goleiros, duas balizas, bola física com condução assistida, chute, passe, desarme, placar dos dois lados e retorno ao lobby. O HUD inclui minimapa, fôlego, botões de ação e seletor de tática.
 
 O relógio utiliza dois períodos e intervalo. O perfil, carreira e conquistas usam arquivos `user://` do Godot, separados do repositório. Assim, dados pessoais de jogo não são enviados ao GitHub.
 
@@ -58,7 +59,7 @@ Os sistemas de escalação, carreira, treino, atributos e clima estão organizad
 
 ## Abrir no Godot
 
-1. Instale Godot 4.3 ou versão 4.x compatível.
+1. Instale Godot 4.7.2 ou versão 4.x compatível.
 2. Baixe o repositório como ZIP ou clone-o.
 3. No Godot, selecione **Importar** e escolha a pasta que contém `project.godot`.
 4. Aguarde a importação e execute com **F6** ou **F5**.
@@ -71,7 +72,7 @@ Para exportar APK, configure no Godot o Android SDK, JDK e os templates de expor
 
 ## Verificação automatizada
 
-O workflow em `.github/workflows/godot-check.yml` abre o projeto em modo headless para verificar se o Godot consegue importar e analisar os scripts. O resultado aparece na aba **Actions** do GitHub.
+O workflow em `.github/workflows/godot-check.yml` usa Godot 4.7.2 em modo headless, importa o projeto e executa testes rápidos das cenas de lobby e partida. O resultado aparece na aba **Actions** do GitHub.
 
 Uma validação automatizada não substitui testes de toque, desempenho, física e exportação em Android.
 
