@@ -60,10 +60,10 @@ func announce(event_name: String, extra := {}) -> void:
 	message_cooldown = 1.1 if event_name == "goal" else 0.65
 	commentary.emit(message, category)
 
-func _pick(options: Array[String]) -> String:
+func _pick(options: Array) -> String:
 	if options.is_empty():
 		return ""
-	return options[randomizer.randi_range(0, options.size() - 1)]
+	return str(options[randomizer.randi_range(0, options.size() - 1)])
 
 func set_enabled(value: bool) -> void:
 	enabled = value
