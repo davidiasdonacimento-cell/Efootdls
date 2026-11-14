@@ -88,8 +88,8 @@ func _build_model(shirt_number: int) -> void:
 	shorts.material_override = _material(shorts_color)
 	add_child(shorts)
 
-	left_leg = _pivot("LeftLeg", Vector3(-0.145, -0.34, 0))
-	right_leg = _pivot("RightLeg", Vector3(0.145, -0.34, 0))
+	left_leg = _pivot("LeftLeg", Vector3(-0.145, -0.13, 0))
+	right_leg = _pivot("RightLeg", Vector3(0.145, -0.13, 0))
 	for leg in [left_leg, right_leg]:
 		_capsule(leg, "Thigh", 0.115, 0.39, Vector3(0, -0.18, 0), skin_color)
 		_capsule(leg, "Sock", 0.087, 0.36, Vector3(0, -0.50, 0), Color(0.91, 0.93, 0.96))
