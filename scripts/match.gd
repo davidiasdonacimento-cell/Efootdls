@@ -63,6 +63,13 @@ func _input(event: InputEvent) -> void:
 		joystick_vector = Vector2.ZERO
 		_update_joystick_visual()
 
+func _unhandled_input(event: InputEvent) -> void:
+	# Toque no lado direito do campo também executa o chute, como em jogos mobile.
+	if event is InputEventScreenTouch and event.pressed:
+		var screen_width := get_viewport().get_visible_rect().size.x
+		if event.position.x > screen_width * 0.52:
+			_kick_ball()
+
 func _mat(color: Color, roughness := 0.8) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
