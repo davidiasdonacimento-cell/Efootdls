@@ -214,7 +214,9 @@ func save_career() -> bool:
 func load_career() -> bool:
 	var config := ConfigFile.new()
 	if config.load(SAVE_PATH) != OK:
-		clubs = CLUBS.duplicate()
+		clubs.clear()
+		for club in CLUBS:
+			clubs.append(str(club))
 		_reset_table()
 		_generate_fixtures()
 		return false
