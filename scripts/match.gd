@@ -35,6 +35,7 @@ var kick_button: Button
 var pass_button: Button
 var tackle_button: Button
 var pause_button: Button
+var menu_button: Button
 var tactics_button: Button
 var score_label: Label
 var status_label: Label
@@ -60,14 +61,16 @@ var sun_light: DirectionalLight3D
 var allies: Array[CharacterBody3D] = []
 var opponents: Array[CharacterBody3D] = []
 var goalkeeper: CharacterBody3D
+var opponent_goalkeeper: CharacterBody3D
 var score := 0
+var opponent_score := 0
 var player_stamina := 100.0
 var game_paused := false
 var match_ended := false
 var joystick_vector := Vector2.ZERO
 var joystick_touch_id := -1
 var sprinting := false
-var goal_area: Area3D
+var goal_areas: Array[Area3D] = []
 var kick_cooldown := 0.0
 var message_time := 0.0
 
@@ -138,6 +141,7 @@ func _physics_process(delta: float) -> void:
 	if message_time <= 0.0 and status_label:
 		status_label.text = "CONTROLE O JOGADOR E FAÇA O GOL"
 	_move_player(delta)
+	_update_ball_control(delta)
 	_keep_ball_on_field()
 	if stats and ball:
 		stats.call("update_ball_speed", ball.linear_velocity.length() * 3.6)
@@ -242,7 +246,7 @@ func _build_world() -> void:
 
 func _build_player() -> void:
 	player = CharacterBody3D.new()
-	player.position = Vector3(0, 0.9, 19)
+	player.position = Vector3(0, 0.9, 2.2)
 	add_child(player)
 
 	var collision := CollisionShape3D.new()
@@ -280,7 +284,7 @@ func _build_player() -> void:
 func _build_ball() -> void:
 	ball = RigidBody3D.new()
 	ball.set_script(BallPhysics)
-	ball.position = Vector3(0, 0.55, 16.8)
+	ball.position = Vector3(0, 0.55, 0.65)
 	ball.mass = 0.45
 	ball.linear_damp = 0.7
 	ball.angular_damp = 0.8
@@ -302,23 +306,26 @@ func _build_ball() -> void:
 	ball.add_child(mesh_instance)
 
 func _build_goal() -> void:
-	var goal_z := -FIELD_LENGTH / 2.0 + 1.2
-	var post_material := Color(0.9, 0.94, 1.0)
-	_add_box(self, Vector3(0.28, 3.2, 0.28), Vector3(-4.0, 1.6, goal_z), post_material, true)
-	_add_box(self, Vector3(0.28, 3.2, 0.28), Vector3(4.0, 1.6, goal_z), post_material, true)
-	_add_box(self, Vector3(8.2, 0.25, 0.28), Vector3(0, 3.2, goal_z), post_material, true)
-	_add_box(self, Vector3(0.12, 3.0, 3.0), Vector3(-4.0, 1.5, goal_z - 1.5), Color(0.55, 0.65, 0.78, 0.5), true)
-	_add_box(self, Vector3(0.12, 3.0, 3.0), Vector3(4.0, 1.5, goal_z - 1.5), Color(0.55, 0.65, 0.78, 0.5), true)
+	_build_goal_at(-FIELD_LENGTH / 2.0 + 1.2, 1)
+	_build_goal_at(FIELD_LENGTH / 2.0 - 1.2, 2)
 
-	goal_area = Area3D.new()
-	goal_area.position = Vector3(0, 1.5, goal_z - 1.3)
-	var area_collision := CollisionShape3D.new()
-	var area_shape := BoxShape3D.new()
-	area_shape.size = Vector3(7.6, 3.0, 2.4)
-	area_collision.shape = area_shape
-	goal_area.add_child(area_collision)
-	goal_area.body_entered.connect(_on_goal_body_entered)
-	add_child(goal_area)
+func _build_goal_at(goal_z: float, scoring_team: int) -> void:
+	var post_material := Color(0.92, 0.96, 1.0)
+	for side in [-1.0, 1.0]:
+		_add_box(self, Vector3(0.28, 3.2, 0.28), Vector3(side * 4.0, 1.6, goal_z), post_material, true)
+	_add_box(self, Vector3(8.2, 0.25, 0.28), Vector3(0, 3.2, goal_z), post_material, true)
+	_add_box(self, Vector3(0.10, 3.0, 2.8), Vector3(-4.0, 1.5, goal_z + (1.4 if goal_z < 0.0 else -1.4)), Color(0.48, 0.62, 0.78), true)
+	_add_box(self, Vector3(0.10, 3.0, 2.8), Vector3(4.0, 1.5, goal_z + (1.4 if goal_z < 0.0 else -1.4)), Color(0.48, 0.62, 0.78), true)
+	var area := Area3D.new()
+	area.position = Vector3(0, 1.5, goal_z + (1.15 if goal_z < 0.0 else -1.15))
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(7.5, 3.0, 1.2)
+	collision.shape = shape
+	area.add_child(collision)
+	area.body_entered.connect(_on_goal_body_entered.bind(scoring_team))
+	add_child(area)
+	goal_areas.append(area)
 
 func _build_camera() -> void:
 	camera = CameraRig.new()
@@ -358,6 +365,23 @@ func _move_player(_delta: float) -> void:
 	player.position.z = clampf(player.position.z, -FIELD_LENGTH / 2.0 + 2.0, FIELD_LENGTH / 2.0 - 2.0)
 	if Vector2(direction.x, direction.z).length() > 0.12:
 		player.rotation.y = atan2(-direction.x, -direction.z)
+
+func _update_ball_control(delta: float) -> void:
+	if not is_instance_valid(player) or not is_instance_valid(ball):
+		return
+	var flat_distance := Vector2(ball.global_position.x - player.global_position.x, ball.global_position.z - player.global_position.z).length()
+	if flat_distance > 1.85 or ball.linear_velocity.length() > 5.2:
+		return
+	# Condução assistida mantém a bola junto ao atleta sem anular a física do chute.
+	var forward := -player.global_transform.basis.z
+	var target_x := player.global_position.x + forward.x * 1.05
+	var target_z := player.global_position.z + forward.z * 1.05
+	var desired_x := clampf((target_x - ball.global_position.x) * 7.0 + player.velocity.x * 0.55, -8.0, 8.0)
+	var desired_z := clampf((target_z - ball.global_position.z) * 7.0 + player.velocity.z * 0.55, -8.0, 8.0)
+	ball.sleeping = false
+	ball.linear_velocity.x = move_toward(ball.linear_velocity.x, desired_x, 18.0 * delta)
+	ball.linear_velocity.z = move_toward(ball.linear_velocity.z, desired_z, 18.0 * delta)
+	ball.linear_velocity.y = maxf(ball.linear_velocity.y, 0.0)
 
 func _update_joystick(screen_position: Vector2) -> void:
 	var rect := joystick_base.get_global_rect()
@@ -458,15 +482,33 @@ func _tackle() -> void:
 	message_time = 0.9
 
 func _build_ai_teams() -> void:
-	_spawn_ai(1, Vector3(-7.0, 0.9, 7.0), "support", 8)
-	_spawn_ai(1, Vector3(7.0, 0.9, 1.0), "winger", 11)
-	_spawn_ai(1, Vector3(0.0, 0.9, 11.0), "support", 9)
-	_spawn_ai(2, Vector3(-6.0, 0.9, -8.0), "presser", 4)
-	_spawn_ai(2, Vector3(6.0, 0.9, -15.0), "defender", 5)
-	_spawn_ai(2, Vector3(0.0, 0.9, -23.0), "defender", 3)
+	# Dez atletas de linha em cada equipe, além do jogador controlado e dos goleiros.
+	_spawn_ai(1, Vector3(-15.0, 0.9, 11.0), "defender", 3)
+	_spawn_ai(1, Vector3(-7.0, 0.9, 13.0), "defender", 4)
+	_spawn_ai(1, Vector3(7.0, 0.9, 13.0), "defender", 5)
+	_spawn_ai(1, Vector3(15.0, 0.9, 11.0), "defender", 2)
+	_spawn_ai(1, Vector3(-9.0, 0.9, 6.0), "support", 8)
+	_spawn_ai(1, Vector3(9.0, 0.9, 6.0), "support", 6)
+	_spawn_ai(1, Vector3(-13.0, 0.9, 0.0), "winger", 7)
+	_spawn_ai(1, Vector3(13.0, 0.9, 0.0), "winger", 11)
+	_spawn_ai(1, Vector3(0.0, 0.9, -5.0), "support", 9)
+	_spawn_ai(1, Vector3(0.0, 0.9, 9.0), "support", 10)
+	_spawn_ai(2, Vector3(-15.0, 0.9, -11.0), "defender", 3)
+	_spawn_ai(2, Vector3(-7.0, 0.9, -13.0), "defender", 4)
+	_spawn_ai(2, Vector3(7.0, 0.9, -13.0), "defender", 5)
+	_spawn_ai(2, Vector3(15.0, 0.9, -11.0), "defender", 2)
+	_spawn_ai(2, Vector3(-9.0, 0.9, -6.0), "presser", 8)
+	_spawn_ai(2, Vector3(9.0, 0.9, -6.0), "presser", 6)
+	_spawn_ai(2, Vector3(-13.0, 0.9, 0.0), "winger", 7)
+	_spawn_ai(2, Vector3(13.0, 0.9, 0.0), "winger", 11)
+	_spawn_ai(2, Vector3(0.0, 0.9, 5.0), "support", 9)
+	_spawn_ai(2, Vector3(0.0, 0.9, -9.0), "support", 10)
 	goalkeeper = GoalkeeperAI.new()
-	goalkeeper.call("configure", ball, false)
+	goalkeeper.call("configure", ball, true)
 	add_child(goalkeeper)
+	opponent_goalkeeper = GoalkeeperAI.new()
+	opponent_goalkeeper.call("configure", ball, false)
+	add_child(opponent_goalkeeper)
 
 func _spawn_ai(team_id: int, start: Vector3, role: String, shirt_number: int) -> void:
 	var athlete: CharacterBody3D = FootballerAI.new()
@@ -544,57 +586,67 @@ func _cycle_tactic() -> void:
 func _on_match_finished() -> void:
 	match_ended = true
 	feedback.call("announce", "full_time")
-	achievements.call("record_match", score > 0)
+	achievements.call("record_match", score > opponent_score)
 	achievements.call("save_achievements")
 	objectives.call("record_event", "match")
-	if score > 0:
+	if score > opponent_score:
 		objectives.call("record_event", "win")
 	replay.call("stop_recording")
 	replay.call("add_event", "full_time")
 	replay.call("save_replay")
 	game_paused = false
-	status_label.text = "FIM DE JOGO • %d GOL(S)" % score
+	status_label.text = "FIM DE JOGO • %d - %d" % [score, opponent_score]
 	for athlete in allies + opponents:
 		if is_instance_valid(athlete):
 			athlete.call("set_ai_enabled", false)
 	if is_instance_valid(goalkeeper):
 		goalkeeper.call("set_enabled", false)
+	if is_instance_valid(opponent_goalkeeper):
+		opponent_goalkeeper.call("set_enabled", false)
 	if profile:
-		var result := "win" if score > 0 else "draw"
-		profile.call("record_match_result", result, score, 0)
+		var result := "win" if score > opponent_score else ("draw" if score == opponent_score else "loss")
+		profile.call("record_match_result", result, score, opponent_score)
 	if career:
 		var fixture: Dictionary = career.call("get_next_user_fixture")
 		if not fixture.is_empty():
-			var home_goals := score if str(fixture.get("home", "")) == str(career.get("user_club")) else 0
-			var away_goals := score if str(fixture.get("away", "")) == str(career.get("user_club")) else 0
+			var user_is_home := str(fixture.get("home", "")) == str(career.get("user_club"))
+			var home_goals := score if user_is_home else opponent_score
+			var away_goals := opponent_score if user_is_home else score
 			career.call("record_fixture", str(fixture["home"]), str(fixture["away"]), home_goals, away_goals)
 
-
-func _on_goal_body_entered(body: Node3D) -> void:
-	if body == ball:
+func _on_goal_body_entered(body: Node3D, scoring_team: int) -> void:
+	if body != ball or match_ended:
+		return
+	if scoring_team == 1:
 		score += 1
 		stats.call("record_goal", 1, "Jogador 10")
-		_update_score()
-		status_label.text = "GOOOOOOL! ⚽"
-		message_time = 2.0
-		ball.call("reset_ball", Vector3(0, 0.55, 16.8))
-		rules.call("award_goal", 1)
+		status_label.text = "GOOOOOOL! EFOOTDLS! ⚽"
+		feedback.call("announce", "goal")
 		achievements.call("record_goal")
 		objectives.call("record_event", "goal")
-		replay.call("add_event", "goal", {"score": score})
-		feedback.call("announce", "goal")
-		player.global_position = Vector3(0, 0.9, 19)
-		player.velocity = Vector3.ZERO
-		player_stamina = minf(100.0, player_stamina + 20.0)
-		if is_instance_valid(goalkeeper):
-			goalkeeper.call("reset_keeper")
-		for athlete in allies:
-			if is_instance_valid(athlete):
-				athlete.velocity = Vector3.ZERO
+	else:
+		opponent_score += 1
+		status_label.text = "GOL DO ADVERSÁRIO"
+		feedback.call("announce", "save")
+	message_time = 2.0
+	_update_score()
+	replay.call("add_event", "goal", {"home": score, "away": opponent_score})
+	ball.call("reset_ball", Vector3(0, 0.55, 0.65))
+	rules.call("award_goal", scoring_team)
+	player.global_position = Vector3(0, 0.9, 2.2)
+	player.velocity = Vector3.ZERO
+	player_stamina = minf(100.0, player_stamina + 20.0)
+	if is_instance_valid(goalkeeper):
+		goalkeeper.call("reset_keeper")
+	if is_instance_valid(opponent_goalkeeper):
+		opponent_goalkeeper.call("reset_keeper")
+	for athlete in allies + opponents:
+		if is_instance_valid(athlete):
+			athlete.velocity = Vector3.ZERO
 
 func _keep_ball_on_field() -> void:
 	if ball.global_position.y < -3.0 or absf(ball.global_position.x) > FIELD_WIDTH / 2.0 + 3.0 or absf(ball.global_position.z) > FIELD_LENGTH / 2.0 + 5.0:
-		ball.call("reset_ball", Vector3(0, 0.55, 16.8))
+		ball.call("reset_ball", Vector3(0, 0.55, 0.65))
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
@@ -628,6 +680,18 @@ func _build_hud() -> void:
 	timer_label.add_theme_font_size_override("font_size", 18)
 	timer_label.add_theme_color_override("font_color", Color.WHITE)
 	ui.add_child(timer_label)
+
+	menu_button = _make_action_button("MENU", Color(0.10, 0.18, 0.28))
+	menu_button.anchor_left = 0.025
+	menu_button.anchor_right = 0.025
+	menu_button.anchor_top = 0.035
+	menu_button.anchor_bottom = 0.035
+	menu_button.offset_left = 0
+	menu_button.offset_top = 0
+	menu_button.offset_right = 100
+	menu_button.offset_bottom = 42
+	ui.add_child(menu_button)
+	menu_button.pressed.connect(_return_to_lobby)
 
 	pause_button = _make_action_button("PAUSAR", Color(0.18, 0.22, 0.30))
 	pause_button.anchor_left = 0.87
@@ -808,4 +872,10 @@ func _style_panel(panel: PanelContainer, color: Color) -> void:
 
 func _update_score() -> void:
 	if score_label:
-		score_label.text = "EFOOTDLS     %d  -  0" % score
+		score_label.text = "EFOOTDLS     %d  -  %d" % [score, opponent_score]
+
+
+func _return_to_lobby() -> void:
+	var result := get_tree().change_scene_to_file("res://scenes/main.tscn")
+	if result != OK:
+		status_label.text = "NÃO FOI POSSÍVEL VOLTAR AO LOBBY"
