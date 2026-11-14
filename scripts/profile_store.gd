@@ -11,8 +11,8 @@ const SETTINGS_SECTION := "settings"
 
 var profile := {
 	"name": "Jogador",
-	"coins": 1200,
-	"gems": 50,
+	"coins": 12000000,
+	"gems": 500000,
 	"experience": 0,
 	"level": 1,
 	"matches": 0,
