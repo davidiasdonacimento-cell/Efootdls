@@ -66,7 +66,7 @@ func _ready() -> void:
 	_build_camera()
 	_build_hud()
 	_update_score()
-	clock.call("start_match", int(settings.get_value("match_length")))
+	clock.call("start_match", int(settings.call("get_value", "match_length")) )
 
 func _physics_process(delta: float) -> void:
 	if clock:
