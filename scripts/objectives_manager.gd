@@ -94,7 +94,7 @@ func _week_stamp() -> String:
 	var week_number := int((int(date["day"]) + 6) / 7)
 	return "%04d-%02d-W%d" % [int(date["year"]), int(date["month"]), week_number]
 
-func _choose_objectives(pool: Array[Dictionary], count: int) -> Array[Dictionary]:
+func _choose_objectives(pool: Array, count: int) -> Array[Dictionary]:
 	var choices := pool.duplicate(true)
 	choices.shuffle()
 	var result: Array[Dictionary] = []
