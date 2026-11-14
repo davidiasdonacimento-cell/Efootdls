@@ -314,10 +314,10 @@ func _build_goal_at(goal_z: float, scoring_team: int) -> void:
 	for side in [-1.0, 1.0]:
 		_add_box(self, Vector3(0.28, 3.2, 0.28), Vector3(side * 4.0, 1.6, goal_z), post_material, true)
 	_add_box(self, Vector3(8.2, 0.25, 0.28), Vector3(0, 3.2, goal_z), post_material, true)
-	_add_box(self, Vector3(0.10, 3.0, 2.8), Vector3(-4.0, 1.5, goal_z + (1.4 if goal_z < 0.0 else -1.4)), Color(0.48, 0.62, 0.78), true)
+	_add_box(self, Vector3(0.10, 3.0, 2.8), Vector3(-4.0, 1.5, goal_z + (-1.4 if goal_z < 0.0 else 1.4)), Color(0.48, 0.62, 0.78), true)
 	_add_box(self, Vector3(0.10, 3.0, 2.8), Vector3(4.0, 1.5, goal_z + (1.4 if goal_z < 0.0 else -1.4)), Color(0.48, 0.62, 0.78), true)
 	var area := Area3D.new()
-	area.position = Vector3(0, 1.5, goal_z + (1.15 if goal_z < 0.0 else -1.15))
+	area.position = Vector3(0, 1.5, goal_z + (-1.15 if goal_z < 0.0 else 1.15))
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(7.5, 3.0, 1.2)
