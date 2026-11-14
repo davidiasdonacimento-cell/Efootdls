@@ -34,7 +34,7 @@ func _ready() -> void:
 	market = TRANSFER_MARKET.new()
 	market.call("load_market")
 	market.call("set_balance", int(profile.call("get_profile").get("coins", 0)))
-	if market.get_offers().is_empty():
+	if market.call("get_offers").is_empty():
 		market.call("refresh_market", 8)
 	_build_stadium_background()
 	_build_interface()
@@ -355,7 +355,7 @@ func _on_formation_selected(index: int) -> void:
 		_show_page("squad")
 
 func _build_market_page() -> void:
-	var balance := int(profile.profile.get("coins", 0))
+	var balance := int(profile.call("get_profile").get("coins", 0))
 	page_body.add_child(_label("SALDO DISPONÍVEL: %s moedas" % _format_number(balance), 16, GOLD, true))
 	var offers: Array = market.call("get_offers")
 	if offers.is_empty():
@@ -384,10 +384,10 @@ func _build_market_page() -> void:
 	page_body.add_child(refresh_button)
 
 func _buy_player(player_id: String) -> void:
-	if roster.substitutes.size() >= 7:
+	if roster.call("get_substitutes").size() >= 7:
 		_set_notice("Banco cheio. Libere uma vaga antes de contratar.")
 		return
-	market.call("set_balance", int(profile.profile.get("coins", 0)))
+	market.call("set_balance", int(profile.call("get_profile").get("coins", 0)))
 	var offer: Dictionary = {}
 	for item in market.call("get_offers"):
 		if str(item.get("id", "")) == player_id:
@@ -397,7 +397,7 @@ func _buy_player(player_id: String) -> void:
 		_set_notice("Esta oferta não está mais disponível.")
 		return
 	var cost := int(offer.get("value", 0))
-	if cost > int(profile.profile.get("coins", 0)):
+	if cost > int(profile.call("get_profile").get("coins", 0)):
 		_set_notice("Moedas insuficientes para esta contratação.")
 		return
 	if not bool(market.call("buy_player", player_id)):
@@ -406,20 +406,21 @@ func _buy_player(player_id: String) -> void:
 	if not bool(profile.call("spend_coins", cost)):
 		_set_notice("Não foi possível atualizar o saldo do perfil.")
 		return
-	var owned: Array = market.call("get_owned_players")\n\tvar signed: Dictionary = owned[owned.size() - 1].duplicate(true)
+	var owned: Array = market.call("get_owned_players")
+	var signed: Dictionary = owned[owned.size() - 1].duplicate(true)
 	signed["number"] = 12 + roster.substitutes.size()
 	if not bool(roster.call("add_player_to_bench", signed)):
 		_set_notice("Atleta contratado, mas não foi possível adicioná-lo ao banco.")
 	else:
 		_save_roster()
 		_set_notice("%s contratado para o banco!" % str(signed.get("name", "Atleta")))
-	market.call("set_balance", int(profile.profile.get("coins", 0)))
+	market.call("set_balance", int(profile.call("get_profile").get("coins", 0)))
 	market.call("save_market")
 	_show_page("market")
 
 func _refresh_market() -> void:
 	market.call("refresh_market", 8)
-	market.call("set_balance", int(profile.profile.get("coins", 0)))
+	market.call("set_balance", int(profile.call("get_profile").get("coins", 0)))
 	_show_page("market")
 
 func _build_events_page() -> void:
@@ -440,7 +441,7 @@ func _build_settings_page() -> void:
 	column.add_theme_constant_override("separation", 10)
 	card.add_child(column)
 	column.add_child(_label("PERFIL", 16, GOLD, true))
-	column.add_child(_label("Nome: %s" % str(profile.profile.get("name", "Jogador")), 14, TEXT_MAIN))
+	column.add_child(_label("Nome: %s" % str(profile.call("get_profile").get("name", "Jogador")), 14, TEXT_MAIN))
 	column.add_child(_label("Progresso salvo localmente no dispositivo.", 12, TEXT_MUTED))
 	var save_button := _make_button("SALVAR PERFIL", false)
 	save_button.pressed.connect(func(): profile.call("save_profile"); _set_notice("Perfil salvo com sucesso."))
@@ -468,7 +469,7 @@ func _save_roster() -> void:
 
 func _refresh_wallet() -> void:
 	if is_instance_valid(wallet_label):
-		wallet_label.text = "%s moedas    •    NÍVEL %d" % [_format_number(int(profile.profile.get("coins", 0))), int(profile.call("get_profile").get("level", 1))]
+		wallet_label.text = "%s moedas    •    NÍVEL %d" % [_format_number(int(profile.call("get_profile").get("coins", 0))), int(profile.call("get_profile").get("level", 1))]
 
 func _set_notice(message: String) -> void:
 	if is_instance_valid(notice_label):
