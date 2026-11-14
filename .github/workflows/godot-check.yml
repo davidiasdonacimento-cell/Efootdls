@@ -1,4 +1,4 @@
-name: Godot project check
+name: Godot 4.7.2 project validation
 
 on:
   push:
@@ -9,12 +9,16 @@ on:
 
 jobs:
   validate:
-    name: Import and parse project
+    name: Import, parse and smoke-test scenes
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.3
+      image: barichello/godot-ci:4.7.2
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Import project and parse GDScript
         run: godot --headless --editor --path . --quit
+      - name: Smoke-test main lobby scene
+        run: godot --headless --path . --quit-after 5
+      - name: Smoke-test football match scene
+        run: godot --headless --path . res://scenes/match.tscn --quit-after 5
