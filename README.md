@@ -3,12 +3,12 @@
 Projeto original de jogo de futebol 3D para Android, desenvolvido em Godot 4.
 
 ## Estado atual
-- Lobby inicial com cenário 3D de estádio criado proceduralmente.
-- Interface adaptável com perfil, moedas e atalhos.
-- Botões de Partida, Dream Team, Meu Elenco, Loja e Evento.
-- Base preparada para adicionar partidas, jogadores, formações e modos online.
-
-> Esta é a primeira etapa jogável do projeto: o lobby e os botões de navegação estão implementados. As telas e os modos indicados nos botões ainda serão desenvolvidos.
+- Partida 3D com gramado, marcações, arquibancadas e gol.
+- Jogador controlável por joystick virtual e teclado.
+- Botão de corrida com aceleração enquanto pressionado.
+- Chute por botão ou toque no lado direito da tela.
+- Bola com física 3D e detecção de gol com placar.
+- Lobby original permanece no projeto como referência visual (scenes/lobby.tscn ainda pode ser adicionado numa próxima etapa).
 
 ## Como abrir
 1. Instale o Godot 4.3 ou superior.
