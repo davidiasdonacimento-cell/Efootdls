@@ -75,11 +75,11 @@ func _build_stadium() -> void:
 	# Arquibancadas em níveis, com iluminação de estádio.
 	for side in [-1.0, 1.0]:
 		for tier in range(4):
-			var z := side * (39.0 + tier * 2.0)
+			var z: float = side * (39.0 + tier * 2.0)
 			_box(self, Vector3(112 - tier * 4, 2.3, 3.8), Vector3(0, 2.0 + tier * 2.0, z), Color(0.055 + tier * 0.012, 0.09 + tier * 0.012, 0.15 + tier * 0.015))
 	for side in [-1.0, 1.0]:
 		for tier in range(3):
-			var x := side * (57.0 + tier * 2.0)
+			var x: float = side * (57.0 + tier * 2.0)
 			_box(self, Vector3(3.8, 2.2, 70 - tier * 5), Vector3(x, 2.0 + tier * 2.0, 0), Color(0.06, 0.10, 0.16))
 	for i in range(12):
 		var light := OmniLight3D.new()
