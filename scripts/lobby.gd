@@ -33,7 +33,7 @@ func _ready() -> void:
 	_load_roster()
 	market = TRANSFER_MARKET.new()
 	market.call("load_market")
-	market.call("set_balance", int(profile.profile.get("coins", 0)))
+	market.call("set_balance", int(profile.call("get_profile").get("coins", 0)))
 	if market.get_offers().is_empty():
 		market.call("refresh_market", 8)
 	_build_stadium_background()
@@ -281,7 +281,7 @@ func _build_home_page() -> void:
 	var stats_row := HBoxContainer.new()
 	stats_row.add_theme_constant_override("separation", 12)
 	page_body.add_child(stats_row)
-	var data: Dictionary = profile.get_profile()
+	var data: Dictionary = profile.call("get_profile")
 	_add_stat_card(stats_row, "PARTIDAS", str(data.get("matches", 0)))
 	_add_stat_card(stats_row, "VITÓRIAS", str(data.get("wins", 0)))
 	_add_stat_card(stats_row, "GOLS", str(data.get("goals", 0)))
@@ -324,17 +324,17 @@ func _build_squad_page() -> void:
 	formation_select.custom_minimum_size = Vector2(170, 42)
 	for formation in FORMATIONS:
 		formation_select.add_item(formation)
-		if formation == str(roster.formation_code):
+		if formation == str(roster.call("get_roster_summary").get("formation", "4-3-3")):
 			formation_select.select(formation_select.item_count - 1)
 	formation_select.item_selected.connect(_on_formation_selected)
 	formation_row.add_child(formation_select)
-	formation_row.add_child(_label("Titulares: %d  •  Reservas: %d" % [roster.starting_eleven.size(), roster.substitutes.size()], 13, TEXT_MUTED))
+	formation_row.add_child(_label("Titulares: %d  •  Reservas: %d" % [roster.call("get_starting_eleven").size(), roster.call("get_substitutes").size()], 13, TEXT_MUTED))
 	var player_card := _card()
 	var player_list := VBoxContainer.new()
 	player_list.add_theme_constant_override("separation", 6)
 	player_card.add_child(player_list)
 	player_list.add_child(_label("TIME TITULAR", 15, GOLD, true))
-	for athlete in roster.get_starting_eleven():
+	for athlete in roster.call("get_starting_eleven"):
 		var line := HBoxContainer.new()
 		line.add_child(_label("%02d  %-22s  %s" % [int(athlete.get("number", 0)), str(athlete.get("name", "Jogador")), str(athlete.get("position", "CM"))], 13, TEXT_MAIN))
 		var spacer := Control.new()
@@ -344,7 +344,7 @@ func _build_squad_page() -> void:
 		player_list.add_child(line)
 	player_list.add_child(HSeparator.new())
 	player_list.add_child(_label("BANCO", 14, GOLD, true))
-	for substitute in roster.get_substitutes():
+	for substitute in roster.call("get_substitutes"):
 		player_list.add_child(_label("%02d  %s  •  %s  •  %d OVR" % [int(substitute.get("number", 0)), str(substitute.get("name", "Reserva")), str(substitute.get("position", "CM")), int(substitute.get("rating", 0))], 12, TEXT_MUTED))
 
 func _on_formation_selected(index: int) -> void:
@@ -389,7 +389,7 @@ func _buy_player(player_id: String) -> void:
 		return
 	market.call("set_balance", int(profile.profile.get("coins", 0)))
 	var offer: Dictionary = {}
-	for item in market.get_offers():
+	for item in market.call("get_offers"):
 		if str(item.get("id", "")) == player_id:
 			offer = item
 			break
@@ -406,7 +406,7 @@ func _buy_player(player_id: String) -> void:
 	if not bool(profile.call("spend_coins", cost)):
 		_set_notice("Não foi possível atualizar o saldo do perfil.")
 		return
-	var signed: Dictionary = market.owned_players[market.owned_players.size() - 1].duplicate(true)
+	var owned: Array = market.call("get_owned_players")\n\tvar signed: Dictionary = owned[owned.size() - 1].duplicate(true)
 	signed["number"] = 12 + roster.substitutes.size()
 	if not bool(roster.call("add_player_to_bench", signed)):
 		_set_notice("Atleta contratado, mas não foi possível adicioná-lo ao banco.")
@@ -468,7 +468,7 @@ func _save_roster() -> void:
 
 func _refresh_wallet() -> void:
 	if is_instance_valid(wallet_label):
-		wallet_label.text = "%s moedas    •    NÍVEL %d" % [_format_number(int(profile.profile.get("coins", 0))), int(profile.profile.get("level", 1))]
+		wallet_label.text = "%s moedas    •    NÍVEL %d" % [_format_number(int(profile.profile.get("coins", 0))), int(profile.call("get_profile").get("level", 1))]
 
 func _set_notice(message: String) -> void:
 	if is_instance_valid(notice_label):
@@ -476,7 +476,7 @@ func _set_notice(message: String) -> void:
 	_refresh_wallet()
 
 func _format_number(value: int) -> String:
-	return "%s" % String.num_int64(value).reverse().insert(",", 3).reverse() if value >= 1000 else str(value)
+	return str(value)
 
 func _add_stat_card(parent: HBoxContainer, caption: String, value: String) -> void:
 	var card := _card()
