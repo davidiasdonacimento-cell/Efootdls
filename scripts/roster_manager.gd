@@ -176,3 +176,63 @@ func reset_team() -> void:
 	captain_number = 10
 	team_name = "Efootdls FC"
 	load_default_roster()
+
+func add_player_to_bench(player: Dictionary) -> bool:
+	if player.is_empty() or substitutes.size() >= 7:
+		return false
+	var number := int(player.get("number", -1))
+	if number < 1 or number > 99 or _find_player_index(starting_eleven, number) >= 0 or _find_player_index(substitutes, number) >= 0:
+		return false
+	var candidate := player.duplicate(true)
+	candidate["rating"] = clampi(int(candidate.get("rating", 50)), 1, 99)
+	candidate["fitness"] = clampi(int(candidate.get("fitness", 100)), 0, 100)
+	candidate["morale"] = clampi(int(candidate.get("morale", 70)), 0, 100)
+	substitutes.append(candidate)
+	return true
+
+func update_player_rating(number: int, new_rating: int) -> bool:
+	var index := _find_player_index(starting_eleven, number)
+	if index < 0:
+		index = _find_player_index(substitutes, number)
+		if index < 0:
+			return false
+		substitutes[index]["rating"] = clampi(new_rating, 1, 99)
+	else:
+		starting_eleven[index]["rating"] = clampi(new_rating, 1, 99)
+	return true
+
+func train_player(number: int, attribute: String, increase: int = 1) -> bool:
+	for player in starting_eleven + substitutes:
+		if int(player.get("number", -1)) != number:
+			continue
+		var attributes: Dictionary = player.get("attributes", {})
+		var current := int(attributes.get(attribute, 50))
+		attributes[attribute] = clampi(current + increase, 1, 99)
+		player["attributes"] = attributes
+		player["rating"] = mini(99, int(player.get("rating", 50)) + (1 if current < 99 and int(attributes[attribute]) >= 90 else 0))
+		return true
+	return false
+
+func get_player_by_number(number: int) -> Dictionary:
+	for player in starting_eleven + substitutes:
+		if int(player.get("number", -1)) == number:
+			return player.duplicate(true)
+	return {}
+
+func get_best_player_for_position(position_code: String) -> Dictionary:
+	var candidates: Array[Dictionary] = []
+	for player in starting_eleven + substitutes:
+		if _positions_compatible(str(player.get("position", "")), position_code):
+			candidates.append(player.duplicate(true))
+	if candidates.is_empty():
+		return {}
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("rating", 0)) > int(b.get("rating", 0))
+	)
+	return candidates[0]
+
+func get_full_roster() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for player in starting_eleven + substitutes:
+		result.append(player.duplicate(true))
+	return result
