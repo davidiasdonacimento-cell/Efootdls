@@ -5,6 +5,14 @@ const FIELD_WIDTH := 42.0
 const PLAYER_SPEED := 7.0
 const SPRINT_SPEED := 11.5
 const BALL_KICK_FORCE := 13.5
+const FootballerAI = preload("res://scripts/footballer_ai.gd")
+const GoalkeeperAI = preload("res://scripts/goalkeeper_ai.gd")
+const BallPhysics = preload("res://scripts/ball_physics.gd")
+const MatchClock = preload("res://scripts/match_clock.gd")
+const MatchStats = preload("res://scripts/match_stats.gd")
+const ProfileStore = preload("res://scripts/profile_store.gd")
+const CameraRig = preload("res://scripts/camera_rig.gd")
+const MatchSettings = preload("res://scripts/match_settings.gd")
 
 var player: CharacterBody3D
 var ball: RigidBody3D
@@ -13,9 +21,24 @@ var joystick_base: Control
 var joystick_knob: Control
 var sprint_button: Button
 var kick_button: Button
+var pass_button: Button
+var tackle_button: Button
+var pause_button: Button
 var score_label: Label
 var status_label: Label
+var timer_label: Label
+var stamina_bar: ProgressBar
+var clock: Node
+var stats: Node
+var profile: Node
+var settings: RefCounted
+var allies: Array[CharacterBody3D] = []
+var opponents: Array[CharacterBody3D] = []
+var goalkeeper: CharacterBody3D
 var score := 0
+var player_stamina := 100.0
+var game_paused := false
+var match_ended := false
 var joystick_vector := Vector2.ZERO
 var joystick_touch_id := -1
 var sprinting := false
@@ -24,24 +47,44 @@ var kick_cooldown := 0.0
 var message_time := 0.0
 
 func _ready() -> void:
+	clock = MatchClock.new()
+	add_child(clock)
+	clock.connect("time_changed", Callable(self, "_on_clock_time_changed"))
+	clock.connect("match_finished", Callable(self, "_on_match_finished"))
+	clock.connect("period_changed", Callable(self, "_on_period_changed"))
+	stats = MatchStats.new()
+	add_child(stats)
+	profile = ProfileStore.new()
+	add_child(profile)
+	settings = MatchSettings.new()
+
 	_build_world()
 	_build_player()
 	_build_ball()
+	_build_ai_teams()
 	_build_goal()
 	_build_camera()
 	_build_hud()
 	_update_score()
+	clock.call("start_match", int(settings.get_value("match_length")))
 
 func _physics_process(delta: float) -> void:
+	if clock:
+		clock.call("tick", delta)
+	if game_paused or match_ended:
+		return
 	kick_cooldown = maxf(0.0, kick_cooldown - delta)
 	message_time = maxf(0.0, message_time - delta)
 	if message_time <= 0.0 and status_label:
 		status_label.text = "CONTROLE O JOGADOR E FAÇA O GOL"
 	_move_player(delta)
-	_update_camera(delta)
 	_keep_ball_on_field()
+	if stats and ball:
+		stats.call("update_ball_speed", ball.linear_velocity.length() * 3.6)
 
 func _input(event: InputEvent) -> void:
+	if joystick_base == null:
+		return
 	if event is InputEventScreenTouch:
 		var rect := joystick_base.get_global_rect()
 		if event.pressed and rect.has_point(event.position):
@@ -175,6 +218,7 @@ func _build_player() -> void:
 
 func _build_ball() -> void:
 	ball = RigidBody3D.new()
+	ball.set_script(BallPhysics)
 	ball.position = Vector3(0, 0.55, 16.8)
 	ball.mass = 0.45
 	ball.linear_damp = 0.7
@@ -216,17 +260,13 @@ func _build_goal() -> void:
 	add_child(goal_area)
 
 func _build_camera() -> void:
-	camera = Camera3D.new()
+	camera = CameraRig.new()
 	camera.position = Vector3(0, 10, 29)
 	camera.fov = 62
 	add_child(camera)
+	camera.call("configure", player, ball)
 	camera.current = true
 	camera.look_at(Vector3(0, 0, 8), Vector3.UP)
-
-func _update_camera(delta: float) -> void:
-	var target := player.global_position + Vector3(0, 8.5, 10.5)
-	camera.global_position = camera.global_position.lerp(target, minf(1.0, delta * 4.0))
-	camera.look_at(player.global_position + Vector3(0, 0.8, -7.0), Vector3.UP)
 
 func _move_player(_delta: float) -> void:
 	var direction := Vector3(joystick_vector.x, 0, joystick_vector.y)
@@ -241,7 +281,14 @@ func _move_player(_delta: float) -> void:
 	if direction.length() > 1.0:
 		direction = direction.normalized()
 
-	var speed := SPRINT_SPEED if sprinting or Input.is_key_pressed(KEY_SHIFT) else PLAYER_SPEED
+	var wants_sprint := sprinting or Input.is_key_pressed(KEY_SHIFT)
+	if wants_sprint and direction.length() > 0.12 and player_stamina > 1.0:
+		player_stamina = maxf(0.0, player_stamina - _delta * 20.0)
+	else:
+		player_stamina = minf(100.0, player_stamina + _delta * 10.0)
+	if stamina_bar:
+		stamina_bar.value = player_stamina
+	var speed := SPRINT_SPEED if wants_sprint and player_stamina > 1.0 else PLAYER_SPEED
 	player.velocity.x = direction.x * speed
 	player.velocity.z = direction.z * speed
 	player.velocity.y -= 24.0 * get_physics_process_delta_time()
@@ -268,36 +315,161 @@ func _update_joystick_visual() -> void:
 	joystick_knob.position = joystick_base.size * 0.5 + Vector2(joystick_vector.x, joystick_vector.y) * radius - joystick_knob.size * 0.5
 
 func _kick_ball() -> void:
-	if kick_cooldown > 0.0:
+	if kick_cooldown > 0.0 or game_paused or match_ended:
 		return
 	kick_cooldown = 0.45
-	var forward := -player.global_transform.basis.z
 	var to_ball := ball.global_position - player.global_position
-	if to_ball.length() > 4.0:
-		forward = Vector3(0, 0, -1)
+	if to_ball.length() > 4.8:
+		status_label.text = "CHEGUE MAIS PERTO DA BOLA"
+		message_time = 0.8
+		return
+	var forward := -player.global_transform.basis.z
 	var direction := (forward + Vector3(0, 0.12, 0)).normalized()
-	ball.sleeping = false
-	ball.apply_central_impulse(direction * BALL_KICK_FORCE + Vector3.UP * 1.8)
+	ball.call("kick", direction, BALL_KICK_FORCE, 0.14, 1)
+	stats.call("record_shot", 1, true, player.global_position.distance_to(ball.global_position))
+	camera.call("add_shake", 0.12, 0.18)
 	status_label.text = "CHUTE!"
 	message_time = 1.0
+
+func _pass_ball() -> void:
+	if game_paused or match_ended or ball.global_position.distance_to(player.global_position) > 4.8:
+		status_label.text = "CHEGUE PERTO DA BOLA PARA PASSAR"
+		message_time = 0.9
+		return
+	var best_player: CharacterBody3D = null
+	var best_distance := INF
+	for teammate in allies:
+		if not is_instance_valid(teammate):
+			continue
+		var distance := player.global_position.distance_to(teammate.global_position)
+		if distance < best_distance and bool(teammate.call("is_available_for_pass")):
+			best_distance = distance
+			best_player = teammate
+	if best_player == null:
+		status_label.text = "NENHUM COMPANHEIRO DISPONÍVEL"
+		message_time = 0.9
+		return
+	ball.call("pass_to", best_player.global_position + Vector3(0, 0.2, -0.3), 9.2, 1)
+	stats.call("record_pass", 1, true)
+	status_label.text = "PASSE!"
+	message_time = 0.7
+
+func _tackle() -> void:
+	if game_paused or match_ended:
+		return
+	var nearest: CharacterBody3D = null
+	var nearest_distance := 3.0
+	for rival in opponents:
+		if not is_instance_valid(rival):
+			continue
+		var distance := player.global_position.distance_to(rival.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = rival
+	if nearest == null:
+		status_label.text = "NÃO HÁ ADVERSÁRIO PERTO"
+		message_time = 0.7
+		stats.call("record_tackle", 1, false)
+		return
+	var push := nearest.global_position - player.global_position
+	push.y = 0.0
+	if push.length_squared() > 0.01:
+		nearest.velocity = push.normalized() * 5.5 + Vector3.UP * 1.5
+		nearest.call("apply_fatigue", 8.0)
+		if nearest_distance < 1.65:
+			ball.call("set_last_touch", 1, "Jogador 10")
+			stats.call("record_tackle", 1, true)
+			status_label.text = "DESARME!"
+		else:
+			stats.call("record_tackle", 1, false)
+			status_label.text = "CHEGUE MAIS PERTO"
+	message_time = 0.9
+
+func _build_ai_teams() -> void:
+	_spawn_ai(1, Vector3(-7.0, 0.9, 7.0), "support", 8)
+	_spawn_ai(1, Vector3(7.0, 0.9, 1.0), "winger", 11)
+	_spawn_ai(1, Vector3(0.0, 0.9, 11.0), "support", 9)
+	_spawn_ai(2, Vector3(-6.0, 0.9, -8.0), "presser", 4)
+	_spawn_ai(2, Vector3(6.0, 0.9, -15.0), "defender", 5)
+	_spawn_ai(2, Vector3(0.0, 0.9, -23.0), "defender", 3)
+	goalkeeper = GoalkeeperAI.new()
+	goalkeeper.call("configure", ball, false)
+	add_child(goalkeeper)
+
+func _spawn_ai(team_id: int, start: Vector3, role: String, shirt_number: int) -> void:
+	var athlete: CharacterBody3D = FootballerAI.new()
+	athlete.call("configure", ball, team_id, start, role, shirt_number)
+	add_child(athlete)
+	if team_id == 1:
+		allies.append(athlete)
+	else:
+		opponents.append(athlete)
+
+func _toggle_pause() -> void:
+	if match_ended:
+		return
+	game_paused = not game_paused
+	if game_paused:
+		clock.call("pause_match")
+		status_label.text = "PARTIDA PAUSADA"
+		pause_button.text = "CONTINUAR"
+	else:
+		clock.call("resume_match")
+		status_label.text = "PARTIDA RETOMADA"
+		pause_button.text = "PAUSAR"
+		message_time = 1.0
+	for athlete in allies + opponents:
+		if is_instance_valid(athlete):
+			athlete.call("set_ai_enabled", not game_paused)
+	if is_instance_valid(goalkeeper):
+		goalkeeper.call("set_enabled", not game_paused)
+
+func _on_clock_time_changed(display_text: String, _seconds_left: int) -> void:
+	if timer_label:
+		timer_label.text = display_text
+
+func _on_period_changed(period: int) -> void:
+	if period == 1:
+		status_label.text = "INTERVALO"
+		message_time = 2.0
+	else:
+		status_label.text = "SEGUNDO TEMPO"
+		message_time = 1.5
+
+func _on_match_finished() -> void:
+	match_ended = true
+	game_paused = false
+	status_label.text = "FIM DE JOGO • %d GOL(S)" % score
+	for athlete in allies + opponents:
+		if is_instance_valid(athlete):
+			athlete.call("set_ai_enabled", false)
+	if is_instance_valid(goalkeeper):
+		goalkeeper.call("set_enabled", false)
+	if profile:
+		var result := "win" if score > 0 else "draw"
+		profile.call("record_match_result", result, score, 0)
+
 
 func _on_goal_body_entered(body: Node3D) -> void:
 	if body == ball:
 		score += 1
+		stats.call("record_goal", 1, "Jogador 10")
 		_update_score()
 		status_label.text = "GOOOOOOL! ⚽"
 		message_time = 2.0
-		ball.linear_velocity = Vector3.ZERO
-		ball.angular_velocity = Vector3.ZERO
-		ball.global_position = Vector3(0, 0.55, 16.8)
+		ball.call("reset_ball", Vector3(0, 0.55, 16.8))
 		player.global_position = Vector3(0, 0.9, 19)
 		player.velocity = Vector3.ZERO
+		player_stamina = minf(100.0, player_stamina + 20.0)
+		if is_instance_valid(goalkeeper):
+			goalkeeper.call("reset_keeper")
+		for athlete in allies:
+			if is_instance_valid(athlete):
+				athlete.velocity = Vector3.ZERO
 
 func _keep_ball_on_field() -> void:
 	if ball.global_position.y < -3.0 or absf(ball.global_position.x) > FIELD_WIDTH / 2.0 + 3.0 or absf(ball.global_position.z) > FIELD_LENGTH / 2.0 + 5.0:
-		ball.linear_velocity = Vector3.ZERO
-		ball.angular_velocity = Vector3.ZERO
-		ball.global_position = Vector3(0, 0.55, 16.8)
+		ball.call("reset_ball", Vector3(0, 0.55, 16.8))
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
@@ -321,6 +493,28 @@ func _build_hud() -> void:
 	score_label.add_theme_font_size_override("font_size", 25)
 	score_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.38))
 	top_row.add_child(score_label)
+
+	timer_label = Label.new()
+	timer_label.anchor_left = 0.78
+	timer_label.anchor_right = 0.96
+	timer_label.anchor_top = 0.035
+	timer_label.anchor_bottom = 0.09
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_label.add_theme_font_size_override("font_size", 18)
+	timer_label.add_theme_color_override("font_color", Color.WHITE)
+	ui.add_child(timer_label)
+
+	pause_button = _make_action_button("PAUSAR", Color(0.18, 0.22, 0.30))
+	pause_button.anchor_left = 0.87
+	pause_button.anchor_right = 0.87
+	pause_button.anchor_top = 0.12
+	pause_button.anchor_bottom = 0.12
+	pause_button.offset_left = -8
+	pause_button.offset_top = 0
+	pause_button.offset_right = 112
+	pause_button.offset_bottom = 42
+	ui.add_child(pause_button)
+	pause_button.pressed.connect(_toggle_pause)
 
 	status_label = Label.new()
 	status_label.text = "CONTROLE O JOGADOR E FAÇA O GOL"
@@ -386,8 +580,44 @@ func _build_hud() -> void:
 	ui.add_child(kick_button)
 	kick_button.pressed.connect(_kick_ball)
 
+	pass_button = _make_action_button("PASSE", Color(0.12, 0.48, 0.34))
+	pass_button.anchor_left = 0.69
+	pass_button.anchor_right = 0.69
+	pass_button.anchor_top = 0.88
+	pass_button.anchor_bottom = 0.88
+	pass_button.offset_left = -6
+	pass_button.offset_top = -8
+	pass_button.offset_right = 106
+	pass_button.offset_bottom = 48
+	ui.add_child(pass_button)
+	pass_button.pressed.connect(_pass_ball)
+
+	tackle_button = _make_action_button("DESARME", Color(0.62, 0.18, 0.20))
+	tackle_button.anchor_left = 0.72
+	tackle_button.anchor_right = 0.72
+	tackle_button.anchor_top = 0.68
+	tackle_button.anchor_bottom = 0.68
+	tackle_button.offset_left = -7
+	tackle_button.offset_top = -4
+	tackle_button.offset_right = 109
+	tackle_button.offset_bottom = 48
+	ui.add_child(tackle_button)
+	tackle_button.pressed.connect(_tackle)
+
+	stamina_bar = ProgressBar.new()
+	stamina_bar.anchor_left = 0.055
+	stamina_bar.anchor_right = 0.28
+	stamina_bar.anchor_top = 0.65
+	stamina_bar.anchor_bottom = 0.65
+	stamina_bar.offset_bottom = 12
+	stamina_bar.min_value = 0
+	stamina_bar.max_value = 100
+	stamina_bar.value = 100
+	stamina_bar.show_percentage = false
+	ui.add_child(stamina_bar)
+
 	var instructions := Label.new()
-	instructions.text = "DESLIZE O JOYSTICK • TOQUE EM CHUTAR"
+	instructions.text = "JOYSTICK: MOVER  •  PASSE  •  CHUTAR  •  DESARME"
 	instructions.anchor_left = 0.29
 	instructions.anchor_right = 0.71
 	instructions.anchor_top = 0.94
