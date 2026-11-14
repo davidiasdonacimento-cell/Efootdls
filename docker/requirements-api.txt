@@ -1,0 +1,5 @@
+# Python is the only supported API/backend language in this project.
+Flask
+Django
+fastapi
+uvicorn[standard]
