@@ -26,6 +26,11 @@ Jogo original de futebol 3D para Android, desenvolvido em Godot 4.3 com o render
 - `scripts/training_manager.gd`: atividades de treino e pontuação.
 - `scripts/achievement_manager.gd`: conquistas e recompensas.
 - `scripts/match_feedback.gd`: comentários curtos para ações da partida.
+- `scripts/replay_recorder.gd`: captura de quadros, eventos e replay local.
+- `scripts/tournament_manager.gd`: chave eliminatória e resultados de torneio.
+- `scripts/transfer_market.gd`: ofertas, contratações, vendas e orçamento.
+- `scripts/objectives_manager.gd`: missões diárias e semanais.
+- `scripts/accessibility_manager.gd`: texto, contraste, controles e preferências de acessibilidade.
 - `scripts/match_settings.gd`: parâmetros e dificuldade.
 - `scripts/lobby.gd`: construção visual do lobby.
 
