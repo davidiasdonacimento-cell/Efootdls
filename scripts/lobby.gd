@@ -10,6 +10,7 @@ var time_passed := 0.0
 
 func _ready() -> void:
 	_build_stadium()
+	_build_hero_player()
 	_build_interface()
 
 func _process(delta: float) -> void:
@@ -97,6 +98,40 @@ func _build_stadium() -> void:
 	ball.position = Vector3(13, 0.55, 4)
 	ball.material_override = _material(Color(0.92, 0.94, 0.98), 0.35)
 	add_child(ball)
+
+
+func _capsule(parent: Node3D, radius: float, height: float, pos: Vector3, color: Color) -> MeshInstance3D:
+	var part := MeshInstance3D.new()
+	var shape := CapsuleMesh.new()
+	shape.radius = radius
+	shape.height = height
+	part.mesh = shape
+	part.position = pos
+	part.material_override = _material(color, 0.62)
+	parent.add_child(part)
+	return part
+
+func _build_hero_player() -> void:
+	# Atleta estilizado original para dar vida ao lobby sem depender de modelos externos.
+	var player := Node3D.new()
+	player.position = Vector3(8.5, 0.0, 0.0)
+	player.rotation_degrees.y = -18
+	add_child(player)
+	_capsule(player, 0.29, 1.12, Vector3(0, 1.18, 0), Color(0.08, 0.32, 0.78))
+	var head := MeshInstance3D.new()
+	var head_mesh := SphereMesh.new()
+	head_mesh.radius = 0.22
+	head_mesh.height = 0.44
+	head.mesh = head_mesh
+	head.position = Vector3(0, 1.92, 0)
+	head.material_override = _material(Color(0.72, 0.48, 0.32))
+	player.add_child(head)
+	_capsule(player, 0.14, 0.92, Vector3(-0.17, 0.48, 0), Color(0.08, 0.09, 0.13))
+	_capsule(player, 0.14, 0.92, Vector3(0.17, 0.48, 0), Color(0.08, 0.09, 0.13))
+	var left_arm := _capsule(player, 0.105, 0.82, Vector3(-0.39, 1.18, 0), Color(0.72, 0.48, 0.32))
+	left_arm.rotation_degrees.z = -12
+	var right_arm := _capsule(player, 0.105, 0.82, Vector3(0.39, 1.18, 0), Color(0.72, 0.48, 0.32))
+	right_arm.rotation_degrees.z = 12
 
 func _style_panel(panel: PanelContainer, color := PANEL) -> void:
 	var style := StyleBoxFlat.new()
