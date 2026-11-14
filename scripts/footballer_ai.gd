@@ -1,4 +1,6 @@
 extends CharacterBody3D
+
+const FootballerVisual = preload("res://scripts/footballer_visual.gd")
 ## Jogador controlado pela IA. Pode atuar como apoio ou como defensor adversário.
 ## A lógica usa steering simples para manter desempenho em aparelhos Android.
 
@@ -17,9 +19,7 @@ var enabled := true
 var action_cooldown := 0.0
 var decision_cooldown := 0.0
 var current_target := Vector3.ZERO
-var body_mesh: MeshInstance3D
-var head_mesh: MeshInstance3D
-var number_label: Label3D
+var player_visual: Node3D
 var stamina := 100.0
 var shirt_color := BODY_COLOR_ENEMY
 var player_number := 2
@@ -67,46 +67,10 @@ func _build_physics() -> void:
 	floor_max_angle = deg_to_rad(48.0)
 
 func _build_appearance() -> void:
-	var torso := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.37
-	capsule.height = 1.55
-	torso.mesh = capsule
-	torso.position.y = 0.82
-	torso.material_override = _make_material(shirt_color)
-	add_child(torso)
-	body_mesh = torso
-
-	var head := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.21
-	sphere.height = 0.42
-	head.mesh = sphere
-	head.position.y = 1.72
-	head.material_override = _make_material(Color(0.68, 0.46, 0.32))
-	add_child(head)
-	head_mesh = head
-
-	var shorts := MeshInstance3D.new()
-	var shorts_mesh := BoxMesh.new()
-	shorts_mesh.size = Vector3(0.62, 0.36, 0.38)
-	shorts.mesh = shorts_mesh
-	shorts.position.y = 0.32
-	shorts.material_override = _make_material(Color(0.055, 0.07, 0.10))
-	add_child(shorts)
-
-	number_label = Label3D.new()
-	number_label.text = str(player_number)
-	number_label.position = Vector3(0, 1.0, -0.39)
-	number_label.pixel_size = 0.007
-	number_label.modulate = Color.WHITE
-	add_child(number_label)
-
-func _make_material(color: Color) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = 0.72
-	return material
+	player_visual = FootballerVisual.new()
+	player_visual.name = "FootballerVisual"
+	player_visual.call("configure", shirt_color, player_number)
+	add_child(player_visual)
 
 func _choose_target() -> Vector3:
 	var ball_position := football.global_position
