@@ -90,8 +90,9 @@ function addStadium(scene) {
 }
 export function startGame(container, callbacks={}) {
   const scene=new THREE.Scene(); scene.background=new THREE.Color('#91b8cc'); scene.fog=new THREE.Fog('#91b8cc',105,190);
-  const camera=new THREE.PerspectiveCamera(43,1,.1,300);
-  camera.position.set(0,76,90); camera.lookAt(0,0,0);
+  const camera=new THREE.PerspectiveCamera(49,1,.1,300);
+  // Broadcast sideline camera: lower angle, diagonal framing, and smooth ball/player tracking.
+  camera.position.set(24,34,48); camera.lookAt(0,0,0);
   const renderer=new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.7)); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -111,7 +112,7 @@ export function startGame(container, callbacks={}) {
   const ballVelocity=new THREE.Vector3(), movement=new THREE.Vector2();
   let running=false,paused=false,scoreHome=0,scoreAway=0,elapsed=0,last=performance.now(),animation=0,raf=0;
   const clock=document.querySelector('#clock');
-  function resize(){const w=container.clientWidth,h=container.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);}
+  function resize(){const w=container.clientWidth,h=container.clientHeight;camera.aspect=w/h;camera.fov=w<700?56:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);}
   const observer=new ResizeObserver(resize);observer.observe(container);resize();
   function move(x,y){movement.set(x,y);if(movement.length()>1)movement.normalize();}
   function kick(){if(!running||paused)return;const dir=new THREE.Vector3(ball.position.x-user.position.x,0,ball.position.z-user.position.z);if(dir.length()>3.3)return;if(dir.length()<.1)dir.set(0,0,-1);dir.normalize();ballVelocity.copy(dir.multiplyScalar(25));ballVelocity.y=5.5;}
@@ -138,11 +139,17 @@ export function startGame(container, callbacks={}) {
           ball.position.set(0,.55,0);ballVelocity.set(0,0,0);
         }else{ball.position.z=Math.sign(ball.position.z)*52.5;ballVelocity.z*=-.65;}
       }
-      // Broadcast camera smoothly tracks play while keeping the full tactical view.
-      const targetX=user.position.x*.18+ball.position.x*.08;
-      camera.position.x+=(targetX-camera.position.x)*dt*.6;
-      camera.position.z+=(85-camera.position.z)*dt*.6;
-      camera.lookAt(user.position.x*.12,0,0);
+      // TV-style sideline broadcast: frame the ball and controlled player together.
+      const focusX=clamp(user.position.x*.58+ball.position.x*.42,-19,19);
+      const focusZ=clamp(user.position.z*.55+ball.position.z*.45,-29,29);
+      const mobile=container.clientWidth<700;
+      const sideOffset=mobile?21:27;
+      const heightOffset=mobile?25:31;
+      const depthOffset=mobile?31:39;
+      const smooth=1-Math.exp(-dt*2.4);
+      const desired=new THREE.Vector3(focusX+sideOffset, heightOffset, focusZ+depthOffset);
+      camera.position.lerp(desired,smooth);
+      camera.lookAt(focusX,1.2,focusZ-3);
     }
     renderer.render(scene,camera);
   }
