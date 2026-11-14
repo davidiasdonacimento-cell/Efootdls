@@ -8,7 +8,7 @@ WORKDIR /workspace
 # Native toolchains and language runtimes.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget gnupg unzip zip xz-utils git build-essential \
-    gcc g++ make cmake pkg-config \
+    gcc g++ make cmake pkg-config emscripten \
     php-cli php-mbstring php-xml php-curl \
     default-jdk kotlin scala \
     perl r-base lua5.4 elixir \
