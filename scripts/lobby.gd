@@ -252,32 +252,37 @@ func _show_page(page: String) -> void:
 	current_page = page
 	for child in page_body.get_children():
 		child.queue_free()
-	match page:
-		"home":
-			page_title.text = "PAINEL DO CLUBE"
-			page_subtitle.text = "Entre em campo, construa seu elenco e avance na temporada."
-			_build_home_page()
-		"dream":
-			page_title.text = "DREAM TEAM"
-			page_subtitle.text = "Seu projeto de equipe começa com uma escalação forte."
-			_build_dream_page()
-		"squad":
-			page_title.text = "MEU ELENCO"
-			page_subtitle.text = "Gerencie titulares, reservas e formação tática."
-			_build_squad_page()
-		"market":
-			page_title.text = "MERCADO DE ATLETAS"
-			page_subtitle.text = "Contrate jogadores usando as moedas do seu perfil."
-			_build_market_page()
-		"events":
-			page_title.text = "EVENTOS"
-			page_subtitle.text = "Partidas e desafios disponíveis no Efootdls."
-			_build_events_page()
-		"settings":
-			page_title.text = "CONFIGURAÇÕES"
-			page_subtitle.text = "Preferências do seu clube e do jogo."
-			_build_settings_page()
-		_refresh_wallet()
+
+	if page == "home":
+		page_title.text = "PAINEL DO CLUBE"
+		page_subtitle.text = "Entre em campo, construa seu elenco e avance na temporada."
+		_build_home_page()
+	elif page == "dream":
+		page_title.text = "DREAM TEAM"
+		page_subtitle.text = "Seu projeto de equipe começa com uma escalação forte."
+		_build_dream_page()
+	elif page == "squad":
+		page_title.text = "MEU ELENCO"
+		page_subtitle.text = "Gerencie titulares, reservas e formação tática."
+		_build_squad_page()
+	elif page == "market":
+		page_title.text = "MERCADO DE ATLETAS"
+		page_subtitle.text = "Contrate jogadores usando as moedas do seu perfil."
+		_build_market_page()
+	elif page == "events":
+		page_title.text = "EVENTOS"
+		page_subtitle.text = "Partidas e desafios disponíveis no Efootdls."
+		_build_events_page()
+	elif page == "settings":
+		page_title.text = "CONFIGURAÇÕES"
+		page_subtitle.text = "Preferências do seu clube e do jogo."
+		_build_settings_page()
+	else:
+		page_title.text = "PAINEL DO CLUBE"
+		page_subtitle.text = "Entre em campo, construa seu elenco e avance na temporada."
+		_build_home_page()
+
+	_refresh_wallet()
 
 func _build_home_page() -> void:
 	var hero := _card()
