@@ -162,7 +162,7 @@ func _sort_table() -> void:
 	)
 
 func _calculate_next_round() -> int:
-	var next_value := 1
+	var next_value := clubs.size() * 2 - 1
 	for fixture in fixtures:
 		if not bool(fixture["played"]):
 			next_value = int(fixture["round"])
