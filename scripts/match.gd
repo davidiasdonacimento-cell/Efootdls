@@ -13,6 +13,14 @@ const MatchStats = preload("res://scripts/match_stats.gd")
 const ProfileStore = preload("res://scripts/profile_store.gd")
 const CameraRig = preload("res://scripts/camera_rig.gd")
 const MatchSettings = preload("res://scripts/match_settings.gd")
+const TacticsManager = preload("res://scripts/tactics_manager.gd")
+const MinimapOverlay = preload("res://scripts/minimap_overlay.gd")
+const WeatherSystem = preload("res://scripts/weather_system.gd")
+const MatchRules = preload("res://scripts/match_rules.gd")
+const CareerManager = preload("res://scripts/career_manager.gd")
+const AchievementManager = preload("res://scripts/achievement_manager.gd")
+const MatchFeedback = preload("res://scripts/match_feedback.gd")
+const RosterManager = preload("res://scripts/roster_manager.gd")
 
 var player: CharacterBody3D
 var ball: RigidBody3D
@@ -24,6 +32,7 @@ var kick_button: Button
 var pass_button: Button
 var tackle_button: Button
 var pause_button: Button
+var tactics_button: Button
 var score_label: Label
 var status_label: Label
 var timer_label: Label
@@ -32,6 +41,16 @@ var clock: Node
 var stats: Node
 var profile: Node
 var settings: RefCounted
+var tactics: Node
+var minimap: Control
+var weather: Node
+var rules: Node
+var career: Node
+var achievements: Node
+var feedback: Node
+var roster: RefCounted
+var world_environment: WorldEnvironment
+var sun_light: DirectionalLight3D
 var allies: Array[CharacterBody3D] = []
 var opponents: Array[CharacterBody3D] = []
 var goalkeeper: CharacterBody3D
@@ -57,11 +76,33 @@ func _ready() -> void:
 	profile = ProfileStore.new()
 	add_child(profile)
 	settings = MatchSettings.new()
+	rules = MatchRules.new()
+	add_child(rules)
+	rules.connect("restart_requested", Callable(self, "_on_restart_requested"))
+	rules.call("start_match", 900.0)
+	rules.call("start_play_after_restart")
+	career = CareerManager.new()
+	add_child(career)
+	roster = RosterManager.new()
+	achievements = AchievementManager.new()
+	add_child(achievements)
+	achievements.call("configure", profile)
+	achievements.connect("achievement_unlocked", Callable(self, "_on_achievement_unlocked"))
+	feedback = MatchFeedback.new()
+	add_child(feedback)
+	feedback.connect("commentary", Callable(self, "_on_commentary"))
 
 	_build_world()
 	_build_player()
 	_build_ball()
+	weather = WeatherSystem.new()
+	add_child(weather)
+	weather.call("configure", world_environment, sun_light, ball)
 	_build_ai_teams()
+	tactics = TacticsManager.new()
+	add_child(tactics)
+	tactics.call("configure", allies, opponents, ball)
+	tactics.connect("tactic_changed", Callable(self, "_on_tactic_changed"))
 	_build_goal()
 	_build_camera()
 	_build_hud()
@@ -71,6 +112,10 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if clock:
 		clock.call("tick", delta)
+	if rules:
+		rules.call("update_rules", delta)
+	if achievements and sprinting and not game_paused and not match_ended:
+		achievements.call("record_sprint", delta)
 	if game_paused or match_ended:
 		return
 	kick_cooldown = maxf(0.0, kick_cooldown - delta)
@@ -326,6 +371,7 @@ func _kick_ball() -> void:
 	var forward := -player.global_transform.basis.z
 	var direction := (forward + Vector3(0, 0.12, 0)).normalized()
 	ball.call("kick", direction, BALL_KICK_FORCE, 0.14, 1)
+	feedback.call("announce", "shot")
 	stats.call("record_shot", 1, true, player.global_position.distance_to(ball.global_position))
 	camera.call("add_shake", 0.12, 0.18)
 	status_label.text = "CHUTE!"
@@ -351,6 +397,8 @@ func _pass_ball() -> void:
 		return
 	ball.call("pass_to", best_player.global_position + Vector3(0, 0.2, -0.3), 9.2, 1)
 	stats.call("record_pass", 1, true)
+	achievements.call("record_pass")
+	feedback.call("announce", "pass")
 	status_label.text = "PASSE!"
 	message_time = 0.7
 
@@ -379,6 +427,8 @@ func _tackle() -> void:
 		if nearest_distance < 1.65:
 			ball.call("set_last_touch", 1, "Jogador 10")
 			stats.call("record_tackle", 1, true)
+			achievements.call("record_tackle")
+			feedback.call("announce", "tackle")
 			status_label.text = "DESARME!"
 		else:
 			stats.call("record_tackle", 1, false)
@@ -411,10 +461,14 @@ func _toggle_pause() -> void:
 	game_paused = not game_paused
 	if game_paused:
 		clock.call("pause_match")
+		rules.call("pause_game")
+		tactics.call("pause_tactics")
 		status_label.text = "PARTIDA PAUSADA"
 		pause_button.text = "CONTINUAR"
 	else:
 		clock.call("resume_match")
+		rules.call("resume_game")
+		tactics.call("resume_tactics")
 		status_label.text = "PARTIDA RETOMADA"
 		pause_button.text = "PAUSAR"
 		message_time = 1.0
@@ -430,14 +484,46 @@ func _on_clock_time_changed(display_text: String, _seconds_left: int) -> void:
 
 func _on_period_changed(period: int) -> void:
 	if period == 1:
+		rules.call("set_half_time")
+		feedback.call("announce", "half_time")
 		status_label.text = "INTERVALO"
 		message_time = 2.0
 	else:
+		rules.call("resume_second_half")
+		rules.call("start_play_after_restart")
 		status_label.text = "SEGUNDO TEMPO"
 		message_time = 1.5
 
+func _on_restart_requested(restart_type: String, _position: Vector3) -> void:
+	if restart_type == "kickoff" and not match_ended:
+		rules.call("start_play_after_restart")
+
+func _on_achievement_unlocked(_achievement_id: String, title: String, reward: int) -> void:
+	if status_label:
+		status_label.text = "CONQUISTA: %s  +%d MOEDAS" % [title, reward]
+		message_time = 2.2
+
+func _on_commentary(message: String, _category: String) -> void:
+	if status_label and not match_ended:
+		status_label.text = message
+		message_time = 1.4
+
+func _on_tactic_changed(_tactic_id: String, title: String) -> void:
+	feedback.call("announce", "tactic", {"title": title})
+	if tactics_button:
+		tactics_button.text = title
+
+func _cycle_tactic() -> void:
+	var title: String = tactics.call("cycle_tactic")
+	if status_label:
+		status_label.text = "TÁTICA: %s" % title
+		message_time = 1.2
+
 func _on_match_finished() -> void:
 	match_ended = true
+	feedback.call("announce", "full_time")
+	achievements.call("record_match", score > 0)
+	achievements.call("save_achievements")
 	game_paused = false
 	status_label.text = "FIM DE JOGO • %d GOL(S)" % score
 	for athlete in allies + opponents:
@@ -448,6 +534,12 @@ func _on_match_finished() -> void:
 	if profile:
 		var result := "win" if score > 0 else "draw"
 		profile.call("record_match_result", result, score, 0)
+	if career:
+		var fixture: Dictionary = career.call("get_next_user_fixture")
+		if not fixture.is_empty():
+			var home_goals := score if str(fixture.get("home", "")) == str(career.get("user_club")) else 0
+			var away_goals := score if str(fixture.get("away", "")) == str(career.get("user_club")) else 0
+			career.call("record_fixture", str(fixture["home"]), str(fixture["away"]), home_goals, away_goals)
 
 
 func _on_goal_body_entered(body: Node3D) -> void:
@@ -458,6 +550,9 @@ func _on_goal_body_entered(body: Node3D) -> void:
 		status_label.text = "GOOOOOOL! ⚽"
 		message_time = 2.0
 		ball.call("reset_ball", Vector3(0, 0.55, 16.8))
+		rules.call("award_goal", 1)
+		achievements.call("record_goal")
+		feedback.call("announce", "goal")
 		player.global_position = Vector3(0, 0.9, 19)
 		player.velocity = Vector3.ZERO
 		player_stamina = minf(100.0, player_stamina + 20.0)
@@ -592,6 +687,18 @@ func _build_hud() -> void:
 	ui.add_child(pass_button)
 	pass_button.pressed.connect(_pass_ball)
 
+	tactics_button = _make_action_button("EQUILIBRADO", Color(0.20, 0.34, 0.52))
+	tactics_button.anchor_left = 0.68
+	tactics_button.anchor_right = 0.68
+	tactics_button.anchor_top = 0.16
+	tactics_button.anchor_bottom = 0.16
+	tactics_button.offset_left = -7
+	tactics_button.offset_top = 0
+	tactics_button.offset_right = 128
+	tactics_button.offset_bottom = 42
+	ui.add_child(tactics_button)
+	tactics_button.pressed.connect(_cycle_tactic)
+
 	tackle_button = _make_action_button("DESARME", Color(0.62, 0.18, 0.20))
 	tackle_button.anchor_left = 0.72
 	tackle_button.anchor_right = 0.72
@@ -626,6 +733,18 @@ func _build_hud() -> void:
 	instructions.add_theme_font_size_override("font_size", 11)
 	instructions.add_theme_color_override("font_color", Color(0.88, 0.92, 0.98, 0.85))
 	ui.add_child(instructions)
+
+	minimap = MinimapOverlay.new()
+	minimap.anchor_left = 0.80
+	minimap.anchor_right = 0.98
+	minimap.anchor_top = 0.20
+	minimap.anchor_bottom = 0.37
+	minimap.offset_left = 0
+	minimap.offset_top = 0
+	minimap.offset_right = 0
+	minimap.offset_bottom = 0
+	ui.add_child(minimap)
+	minimap.call("configure", player, ball, allies, opponents)
 
 func _make_action_button(caption: String, color: Color) -> Button:
 	var button := Button.new()
