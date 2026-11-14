@@ -101,7 +101,9 @@ func _build_model(shirt_number: int) -> void:
 	right_arm = _pivot("RightArm", Vector3(0.30, 0.39, 0))
 	for arm in [left_arm, right_arm]:
 		_capsule(arm, "Sleeve", 0.092, 0.36, Vector3(0, -0.16, 0), shirt_color)
-		var forearm := _pivot("Forearm", Vector3(0, -0.31, 0))
+		var forearm := Node3D.new()
+		forearm.name = "Forearm"
+		forearm.position = Vector3(0, -0.31, 0)
 		arm.add_child(forearm)
 		_capsule(forearm, "ForearmMesh", 0.071, 0.31, Vector3(0, -0.15, 0), skin_color)
 		_sphere(forearm, "Hand", 0.072, Vector3(0, -0.31, 0), Vector3(0.9, 1.0, 0.8), skin_color)
