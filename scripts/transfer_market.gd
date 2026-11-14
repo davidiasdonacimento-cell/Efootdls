@@ -34,7 +34,7 @@ func refresh_market(count := 8) -> void:
 
 func _generate_player(index: int) -> Dictionary:
 	var rating := randomizer.randi_range(58, 87)
-	var position := POSITIONS[randomizer.randi_range(0, POSITIONS.size() - 1)]
+	var position: String = str(POSITIONS[randomizer.randi_range(0, POSITIONS.size() - 1)])
 	var value := _calculate_value(rating)
 	return {
 		"id": "market_%d_%d" % [refresh_number, index],
