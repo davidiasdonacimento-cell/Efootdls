@@ -24,6 +24,8 @@ const RosterManager = preload("res://scripts/roster_manager.gd")
 const ReplayRecorder = preload("res://scripts/replay_recorder.gd")
 const ObjectivesManager = preload("res://scripts/objectives_manager.gd")
 const AccessibilityManager = preload("res://scripts/accessibility_manager.gd")
+const FootballerVisual = preload("res://scripts/footballer_visual.gd")
+const StadiumAsset = preload("res://scripts/stadium_asset.gd")
 
 var player: CharacterBody3D
 var ball: RigidBody3D
@@ -191,6 +193,7 @@ func _add_box(parent: Node3D, size: Vector3, pos: Vector3, color: Color, collisi
 	mesh_instance.mesh = mesh
 	mesh_instance.position = pos
 	mesh_instance.material_override = _mat(color)
+	mesh_instance.add_to_group("fallback_stadium_visual")
 	parent.add_child(mesh_instance)
 	if collision:
 		var body := StaticBody3D.new()
@@ -244,6 +247,15 @@ func _build_world() -> void:
 		for tier in range(3):
 			_add_box(self, Vector3(2.4, 1.6, FIELD_LENGTH + 8), Vector3(side * (FIELD_WIDTH / 2.0 + 5.0 + tier * 1.4), 1.0 + tier * 1.4, 0), Color(0.035, 0.07, 0.13))
 
+	var detailed_stadium := StadiumAsset.new()
+	detailed_stadium.configure(0.6176)
+	detailed_stadium.finished.connect(_on_stadium_asset_finished)
+	add_child(detailed_stadium)
+
+func _on_stadium_asset_finished(success: bool) -> void:
+	if success:
+		get_tree().call_group("fallback_stadium_visual", "hide")
+
 func _build_player() -> void:
 	player = CharacterBody3D.new()
 	player.position = Vector3(0, 0.9, 2.2)
@@ -251,40 +263,20 @@ func _build_player() -> void:
 
 	var collision := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.42
+	capsule.radius = 0.36
 	capsule.height = 1.8
 	collision.shape = capsule
 	player.add_child(collision)
 
-	var body := MeshInstance3D.new()
-	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.42
-	body_mesh.height = 1.8
-	body.mesh = body_mesh
-	body.position.y = 0
-	body.material_override = _mat(Color(0.06, 0.25, 0.82))
-	player.add_child(body)
-
-	var head := MeshInstance3D.new()
-	var head_mesh := SphereMesh.new()
-	head_mesh.radius = 0.23
-	head_mesh.height = 0.46
-	head.mesh = head_mesh
-	head.position.y = 1.02
-	head.material_override = _mat(Color(0.68, 0.46, 0.31))
-	player.add_child(head)
-
-	var number := Label3D.new()
-	number.text = "10"
-	number.position = Vector3(0, 0.1, -0.43)
-	number.pixel_size = 0.006
-	number.modulate = Color.WHITE
-	player.add_child(number)
+	var visual := FootballerVisual.new()
+	visual.name = "Player10Visual"
+	visual.call("configure", Color(0.06, 0.28, 0.86), 10)
+	player.add_child(visual)
 
 func _build_ball() -> void:
 	ball = RigidBody3D.new()
 	ball.set_script(BallPhysics)
-	ball.position = Vector3(0, 0.55, 0.65)
+	ball.position = Vector3(0, 0.06, 1.2)
 	ball.mass = 0.45
 	ball.linear_damp = 0.7
 	ball.angular_damp = 0.8
@@ -293,14 +285,14 @@ func _build_ball() -> void:
 
 	var collision := CollisionShape3D.new()
 	var shape := SphereShape3D.new()
-	shape.radius = 0.38
+	shape.radius = 0.16
 	collision.shape = shape
 	ball.add_child(collision)
 
 	var mesh_instance := MeshInstance3D.new()
 	var sphere := SphereMesh.new()
-	sphere.radius = 0.38
-	sphere.height = 0.76
+	sphere.radius = 0.16
+	sphere.height = 0.32
 	mesh_instance.mesh = sphere
 	mesh_instance.material_override = _mat(Color(0.96, 0.97, 1.0), 0.3)
 	ball.add_child(mesh_instance)
@@ -359,7 +351,10 @@ func _move_player(_delta: float) -> void:
 	var speed := SPRINT_SPEED if wants_sprint and player_stamina > 1.0 else PLAYER_SPEED
 	player.velocity.x = direction.x * speed
 	player.velocity.z = direction.z * speed
-	player.velocity.y -= 24.0 * get_physics_process_delta_time()
+	if not player.is_on_floor():
+		player.velocity.y -= 24.0 * _delta
+	else:
+		player.velocity.y = 0.0
 	player.move_and_slide()
 	player.position.x = clampf(player.position.x, -FIELD_WIDTH / 2.0 + 1.2, FIELD_WIDTH / 2.0 - 1.2)
 	player.position.z = clampf(player.position.z, -FIELD_LENGTH / 2.0 + 2.0, FIELD_LENGTH / 2.0 - 2.0)
@@ -404,7 +399,7 @@ func _kick_ball() -> void:
 		return
 	kick_cooldown = 0.45
 	var to_ball := ball.global_position - player.global_position
-	if to_ball.length() > 4.8:
+	if to_ball.length() > 2.2:
 		status_label.text = "CHEGUE MAIS PERTO DA BOLA"
 		message_time = 0.8
 		return
@@ -420,7 +415,7 @@ func _kick_ball() -> void:
 	message_time = 1.0
 
 func _pass_ball() -> void:
-	if game_paused or match_ended or ball.global_position.distance_to(player.global_position) > 4.8:
+	if game_paused or match_ended or ball.global_position.distance_to(player.global_position) > 2.2:
 		status_label.text = "CHEGUE PERTO DA BOLA PARA PASSAR"
 		message_time = 0.9
 		return
@@ -630,7 +625,7 @@ func _on_goal_body_entered(body: Node3D, scoring_team: int) -> void:
 	message_time = 2.0
 	_update_score()
 	replay.call("add_event", "goal", {"home": score, "away": opponent_score})
-	ball.call("reset_ball", Vector3(0, 0.55, 0.65))
+	ball.call("reset_ball", Vector3(0, 0.06, 1.2))
 	rules.call("award_goal", scoring_team)
 	player.global_position = Vector3(0, 0.9, 2.2)
 	player.velocity = Vector3.ZERO
