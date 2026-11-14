@@ -5,6 +5,7 @@ const MATCH_SCENE := "res://scenes/match.tscn"
 const PROFILE_STORE = preload("res://scripts/profile_store.gd")
 const ROSTER_MANAGER = preload("res://scripts/roster_manager.gd")
 const TRANSFER_MARKET = preload("res://scripts/transfer_market.gd")
+const STADIUM_ASSET = preload("res://scripts/stadium_asset.gd")
 const FORMATIONS := ["4-3-3", "4-4-2", "4-2-3-1", "3-5-2", "5-3-2"]
 
 const GOLD := Color(1.0, 0.76, 0.30)
@@ -25,6 +26,7 @@ var notice_label: Label
 var current_page := "home"
 var time_passed := 0.0
 var hero_ball: MeshInstance3D
+var stadium_visual_root: Node3D
 
 func _ready() -> void:
 	profile = PROFILE_STORE.new()
@@ -39,6 +41,10 @@ func _ready() -> void:
 	_build_stadium_background()
 	_build_interface()
 	_show_page("home")
+	var stadium := STADIUM_ASSET.new()
+	stadium.configure(0.75)
+	stadium.finished.connect(_on_stadium_asset_finished)
+	add_child(stadium)
 
 func _process(delta: float) -> void:
 	time_passed += delta
@@ -65,12 +71,15 @@ func _build_stadium_background() -> void:
 	add_child(sun)
 
 	var camera := Camera3D.new()
-	camera.position = Vector3(0, 17, 34)
-	camera.fov = 52
+	camera.position = Vector3(0, 42, 78)
+	camera.fov = 58
 	add_child(camera)
-	camera.look_at(Vector3(0, 1.5, 0), Vector3.UP)
+	camera.look_at(Vector3(0, 4.0, 0), Vector3.UP)
 	camera.current = true
 
+	stadium_visual_root = Node3D.new()
+	stadium_visual_root.name = "FallbackStadium"
+	add_child(stadium_visual_root)
 	_add_box(Vector3(100, 0.7, 82), Vector3(0, -0.5, 0), Color(0.018, 0.075, 0.065))
 	_add_box(Vector3(78, 0.08, 54), Vector3(0, -0.08, 0), Color(0.035, 0.29, 0.13))
 	for stripe in range(9):
@@ -105,6 +114,12 @@ func _build_stadium_background() -> void:
 	_add_sphere(player, 0.23, Vector3(0, 1.92, 0), Color(0.70, 0.48, 0.34))
 	hero_ball = _add_sphere(self, 0.48, Vector3(8.2, 0.48, 4.8), Color(0.96, 0.97, 1.0))
 
+func _on_stadium_asset_finished(success: bool) -> void:
+	if success and is_instance_valid(stadium_visual_root):
+		stadium_visual_root.visible = false
+		if is_instance_valid(notice_label):
+			notice_label.text = "ESTÁDIO 3D CC0 CARREGADO"
+
 func _add_box(size: Vector3, position_value: Vector3, color: Color) -> MeshInstance3D:
 	var item := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
@@ -112,7 +127,7 @@ func _add_box(size: Vector3, position_value: Vector3, color: Color) -> MeshInsta
 	item.mesh = mesh
 	item.position = position_value
 	item.material_override = _material(color)
-	add_child(item)
+	stadium_visual_root.add_child(item)
 	return item
 
 func _add_capsule(parent: Node3D, radius: float, height: float, position_value: Vector3, color: Color) -> MeshInstance3D:
