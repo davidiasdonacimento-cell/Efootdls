@@ -6,6 +6,7 @@ const PROFILE_STORE = preload("res://scripts/profile_store.gd")
 const ROSTER_MANAGER = preload("res://scripts/roster_manager.gd")
 const TRANSFER_MARKET = preload("res://scripts/transfer_market.gd")
 const STADIUM_ASSET = preload("res://scripts/stadium_asset.gd")
+const FOOTBALLER_VISUAL = preload("res://scripts/footballer_visual.gd")
 const FORMATIONS := ["4-3-3", "4-4-2", "4-2-3-1", "3-5-2", "5-3-2"]
 
 const GOLD := Color(1.0, 0.76, 0.30)
@@ -105,13 +106,13 @@ func _build_stadium_background() -> void:
 
 	# Bola e atleta de destaque no cenário do menu.
 	var player := Node3D.new()
-	player.position = Vector3(13, 0, 0)
+	player.position = Vector3(13, 0.9, 0)
 	player.rotation_degrees.y = -14
 	add_child(player)
-	_add_capsule(player, 0.35, 1.35, Vector3(0, 1.05, 0), Color(0.06, 0.30, 0.82))
-	_add_capsule(player, 0.16, 0.95, Vector3(-0.19, 0.45, 0), Color(0.04, 0.05, 0.09))
-	_add_capsule(player, 0.16, 0.95, Vector3(0.19, 0.45, 0), Color(0.04, 0.05, 0.09))
-	_add_sphere(player, 0.23, Vector3(0, 1.92, 0), Color(0.70, 0.48, 0.34))
+	var player_model := FOOTBALLER_VISUAL.new()
+	player_model.name = "LobbyFootballer"
+	player_model.configure(Color(0.06, 0.30, 0.82), 10)
+	player.add_child(player_model)
 	hero_ball = _add_sphere(self, 0.48, Vector3(8.2, 0.48, 4.8), Color(0.96, 0.97, 1.0))
 
 func _on_stadium_asset_finished(success: bool) -> void:
