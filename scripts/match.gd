@@ -21,6 +21,9 @@ const CareerManager = preload("res://scripts/career_manager.gd")
 const AchievementManager = preload("res://scripts/achievement_manager.gd")
 const MatchFeedback = preload("res://scripts/match_feedback.gd")
 const RosterManager = preload("res://scripts/roster_manager.gd")
+const ReplayRecorder = preload("res://scripts/replay_recorder.gd")
+const ObjectivesManager = preload("res://scripts/objectives_manager.gd")
+const AccessibilityManager = preload("res://scripts/accessibility_manager.gd")
 
 var player: CharacterBody3D
 var ball: RigidBody3D
@@ -49,6 +52,9 @@ var career: Node
 var achievements: Node
 var feedback: Node
 var roster: RefCounted
+var replay: Node
+var objectives: Node
+var accessibility: RefCounted
 var world_environment: WorldEnvironment
 var sun_light: DirectionalLight3D
 var allies: Array[CharacterBody3D] = []
@@ -91,6 +97,11 @@ func _ready() -> void:
 	feedback = MatchFeedback.new()
 	add_child(feedback)
 	feedback.connect("commentary", Callable(self, "_on_commentary"))
+	objectives = ObjectivesManager.new()
+	add_child(objectives)
+	objectives.call("configure", profile)
+	accessibility = AccessibilityManager.new()
+	accessibility.call("load_options")
 
 	_build_world()
 	_build_player()
@@ -99,6 +110,10 @@ func _ready() -> void:
 	add_child(weather)
 	weather.call("configure", world_environment, sun_light, ball)
 	_build_ai_teams()
+	replay = ReplayRecorder.new()
+	add_child(replay)
+	replay.call("configure", player, ball, allies, opponents)
+	replay.call("start_recording")
 	tactics = TacticsManager.new()
 	add_child(tactics)
 	tactics.call("configure", allies, opponents, ball)
@@ -373,6 +388,8 @@ func _kick_ball() -> void:
 	var direction := (forward + Vector3(0, 0.12, 0)).normalized()
 	ball.call("kick", direction, BALL_KICK_FORCE, 0.14, 1)
 	feedback.call("announce", "shot")
+	replay.call("add_event", "shot")
+	objectives.call("record_event", "shot")
 	stats.call("record_shot", 1, true, player.global_position.distance_to(ball.global_position))
 	camera.call("add_shake", 0.12, 0.18)
 	status_label.text = "CHUTE!"
@@ -399,6 +416,8 @@ func _pass_ball() -> void:
 	ball.call("pass_to", best_player.global_position + Vector3(0, 0.2, -0.3), 9.2, 1)
 	stats.call("record_pass", 1, true)
 	achievements.call("record_pass")
+	objectives.call("record_event", "pass")
+	replay.call("add_event", "pass")
 	feedback.call("announce", "pass")
 	status_label.text = "PASSE!"
 	message_time = 0.7
@@ -429,6 +448,8 @@ func _tackle() -> void:
 			ball.call("set_last_touch", 1, "Jogador 10")
 			stats.call("record_tackle", 1, true)
 			achievements.call("record_tackle")
+			objectives.call("record_event", "tackle")
+			replay.call("add_event", "tackle")
 			feedback.call("announce", "tackle")
 			status_label.text = "DESARME!"
 		else:
@@ -525,6 +546,12 @@ func _on_match_finished() -> void:
 	feedback.call("announce", "full_time")
 	achievements.call("record_match", score > 0)
 	achievements.call("save_achievements")
+	objectives.call("record_event", "match")
+	if score > 0:
+		objectives.call("record_event", "win")
+	replay.call("stop_recording")
+	replay.call("add_event", "full_time")
+	replay.call("save_replay")
 	game_paused = false
 	status_label.text = "FIM DE JOGO • %d GOL(S)" % score
 	for athlete in allies + opponents:
@@ -553,6 +580,8 @@ func _on_goal_body_entered(body: Node3D) -> void:
 		ball.call("reset_ball", Vector3(0, 0.55, 16.8))
 		rules.call("award_goal", 1)
 		achievements.call("record_goal")
+		objectives.call("record_event", "goal")
+		replay.call("add_event", "goal", {"score": score})
 		feedback.call("announce", "goal")
 		player.global_position = Vector3(0, 0.9, 19)
 		player.velocity = Vector3.ZERO
@@ -746,6 +775,7 @@ func _build_hud() -> void:
 	minimap.offset_bottom = 0
 	ui.add_child(minimap)
 	minimap.call("configure", player, ball, allies, opponents)
+	accessibility.call("apply_interface", ui)
 
 func _make_action_button(caption: String, color: Color) -> Button:
 	var button := Button.new()
